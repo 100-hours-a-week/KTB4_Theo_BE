@@ -68,6 +68,9 @@ class NotificationRepositoryTest {
         // then
         Notification saved = notificationRepository.saveAndFlush(notification);
 
+        assertThat(saved.getId()).isNotNull();
+        assertThat(saved.getReceiver().getId()).isEqualTo(receiver.getId());
+        assertThat(saved.getActor().getId()).isEqualTo(actor.getId());
         assertThat(saved.getType()).isEqualTo(NotificationType.COMMENT);
         assertThat(saved.getSourceType()).isEqualTo(NotificationSourceType.COMMENT);
         assertThat(saved.getSourceId()).isEqualTo(comment.getId());
@@ -140,6 +143,8 @@ class NotificationRepositoryTest {
         assertThatThrownBy(() -> notificationRepository.saveAndFlush(duplicate))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
+
+
 
     private User saveUser(String email, String nickname) {
         User user = new User(email, "password", nickname, null);

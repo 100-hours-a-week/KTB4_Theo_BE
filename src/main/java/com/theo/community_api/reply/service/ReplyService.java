@@ -4,6 +4,7 @@ import com.theo.community_api.comment.domain.Comment;
 import com.theo.community_api.comment.repository.CommentRepository;
 import com.theo.community_api.common.exception.BusinessException;
 import com.theo.community_api.common.exception.ErrorCode;
+import com.theo.community_api.notification.service.NotificationService;
 import com.theo.community_api.reply.domain.Reply;
 import com.theo.community_api.reply.dto.ReplyCreateRequest;
 import com.theo.community_api.reply.dto.ReplyUpdateRequest;
@@ -21,6 +22,7 @@ public class ReplyService {
     private final ReplyRepository replyRepository;
     private final CommentRepository commentRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     // 대댓글 작성
     @Transactional
@@ -43,6 +45,8 @@ public class ReplyService {
         Reply reply = new Reply(comment, user, request.getContent());
 
         Reply savedReply = replyRepository.save(reply);
+
+        notificationService.createReplyNotification(savedReply, user);
 
         return savedReply.getId();
     }

@@ -1,10 +1,12 @@
 package com.theo.community_api.notification.service;
 
+import com.theo.community_api.comment.domain.Comment;
 import com.theo.community_api.notification.domain.Notification;
 import com.theo.community_api.notification.domain.NotificationSourceType;
 import com.theo.community_api.notification.domain.NotificationType;
 import com.theo.community_api.notification.repository.NotificationRepository;
 import com.theo.community_api.post.domain.Post;
+import com.theo.community_api.reply.domain.Reply;
 import com.theo.community_api.user.domain.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,11 +18,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class NotificationService {
     private final NotificationRepository notificationRepository;
 
-    public void createLikeNotification(Post post, User actor){
+    public void createLikeNotification(Post post, User actor) {
         User receiver = post.getUser();
 
         // 행위자와 수신자가 동일하면 알림 전달 X
-        if(receiver.getId().equals(actor.getId())){
+        if (receiver.getId().equals(actor.getId())) {
             return;
         }
 
@@ -39,6 +41,32 @@ public class NotificationService {
         }
 
         Notification notification = Notification.createLike(receiver, actor, post);
+
+        notificationRepository.save(notification);
+    }
+
+    public void createCommentNotification(Comment comment, User actor){
+        User receiver = comment.getPost().getUser();
+
+        // 댓글 작성자가 게시글 작성자와 동일한 경우
+        if (receiver.getId().equals(actor.getId())) {
+            return;
+        }
+
+        Notification notification = Notification.createComment(receiver, actor, comment);
+
+        notificationRepository.save(notification);
+    }
+
+    public void createReplyNotification(Reply reply, User actor) {
+        User receiver = reply.getComment().getUser();
+
+        // 답글 작성자가 부모 댓글 작성자와 동일한 경우
+        if (receiver.getId().equals(actor.getId())) {
+            return;
+        }
+
+        Notification notification = Notification.createReply(receiver, actor, reply);
 
         notificationRepository.save(notification);
     }

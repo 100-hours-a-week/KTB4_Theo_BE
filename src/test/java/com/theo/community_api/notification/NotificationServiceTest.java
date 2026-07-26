@@ -1,11 +1,13 @@
 package com.theo.community_api.notification;
 
+import com.theo.community_api.comment.domain.Comment;
 import com.theo.community_api.notification.domain.Notification;
 import com.theo.community_api.notification.domain.NotificationSourceType;
 import com.theo.community_api.notification.domain.NotificationType;
 import com.theo.community_api.notification.repository.NotificationRepository;
 import com.theo.community_api.notification.service.NotificationService;
 import com.theo.community_api.post.domain.Post;
+import com.theo.community_api.reply.domain.Reply;
 import com.theo.community_api.user.domain.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -30,6 +32,7 @@ public class NotificationServiceTest {
     private User postAuthor;
     private Post post;
     private User actor;
+    private Comment comment;
 
     @BeforeEach
     void setUp() { // 게시글 작성자, 게시글, 행위자 설정
@@ -131,5 +134,106 @@ public class NotificationServiceTest {
                 .save(any(Notification.class));
     }
 
+    @Test
+    @DisplayName("다른 사용자의 게시글에 댓글을 작성하면 알림을 생성한다")
+    void creates_comment_notification_for_another_users_post() {
+        // given
+        comment = new Comment(
+                post,
+                actor,
+                "테스트 댓글"
+        );
 
+        ReflectionTestUtils.setField(comment, "id", 20L);
+
+        // when
+        notificationService.createCommentNotification(comment, actor);
+
+        // then
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+
+        verify(notificationRepository).save(captor.capture());
+
+        Notification savedNotification = captor.getValue();
+
+        assertThat(savedNotification.getReceiver()).isEqualTo(postAuthor);
+        assertThat(savedNotification.getActor()).isEqualTo(actor);
+        assertThat(savedNotification.getType())
+                .isEqualTo(NotificationType.COMMENT);
+    }
+
+    @Test
+    @DisplayName("자신의 게시글에 댓글을 작성하면 알림을 생성하지 않는다")
+    void does_not_create_comment_notification_for_own_post() {
+        // given
+        Comment comment = new Comment(
+                post,
+                postAuthor,
+                "작성자 본인의 댓글"
+        );
+
+        ReflectionTestUtils.setField(comment, "id", 20L);
+
+        // when
+        notificationService.createCommentNotification(
+                comment,
+                postAuthor
+        );
+
+        // then
+        verify(notificationRepository, never())
+                .save(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("다른 사용자의 댓글에 답글을 작성하면 댓글 작성자에게 알림을 생성한다")
+    void creates_reply_notification_for_another_users_comment() {
+        // given
+        User commentAuthor = new User(
+                "comment-author@test.com",
+                "password",
+                "댓글작성자",
+                null
+        );
+        ReflectionTestUtils.setField(commentAuthor, "id", 3L);
+
+        Comment parentComment = new Comment(post, commentAuthor, "부모 댓글");
+        ReflectionTestUtils.setField(parentComment, "id", 20L);
+
+        Reply reply = new Reply(parentComment, actor, "테스트 답글");
+        ReflectionTestUtils.setField(reply, "id", 30L);
+
+        // when
+        notificationService.createReplyNotification(reply, actor);
+
+        // then
+        ArgumentCaptor<Notification> captor =
+                ArgumentCaptor.forClass(Notification.class);
+
+        verify(notificationRepository).save(captor.capture());
+
+        Notification savedNotification = captor.getValue();
+
+        assertThat(savedNotification.getReceiver()).isEqualTo(commentAuthor);
+        assertThat(savedNotification.getActor()).isEqualTo(actor);
+        assertThat(savedNotification.getType()).isEqualTo(NotificationType.REPLY);
+    }
+
+    @Test
+    @DisplayName("자신의 댓글에 답글을 작성하면 알림을 생성하지 않는다")
+    void does_not_create_reply_notification_for_own_comment() {
+        // given
+        Comment parentComment = new Comment(post, actor, "본인의 댓글");
+        ReflectionTestUtils.setField(parentComment, "id", 20L);
+
+        Reply reply = new Reply(parentComment, actor, "본인의 답글");
+        ReflectionTestUtils.setField(reply, "id", 30L);
+
+        // when
+        notificationService.createReplyNotification(reply, actor);
+
+        // then
+        verify(notificationRepository, never())
+                .save(any(Notification.class));
+    }
 }
