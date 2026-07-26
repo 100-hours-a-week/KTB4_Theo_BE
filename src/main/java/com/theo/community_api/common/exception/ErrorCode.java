@@ -39,6 +39,7 @@ public enum ErrorCode { // 비즈니스 예외 모음
     DRAFT_NOT_FOUND(HttpStatus.NOT_FOUND, "draft_not_found"),
     POST_REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "post_report_not_found"),
     ALREADY_PROCESSED_REPORT(HttpStatus.CONFLICT, "already_processed_report"),
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "notification_not_found"),
 
     // 409
     EMAIL_ALREADY_EXIST(HttpStatus.CONFLICT, "email_already_exist"),

@@ -1,9 +1,12 @@
 package com.theo.community_api.notification;
 
 import com.theo.community_api.comment.domain.Comment;
+import com.theo.community_api.common.exception.BusinessException;
+import com.theo.community_api.common.exception.ErrorCode;
 import com.theo.community_api.notification.domain.Notification;
 import com.theo.community_api.notification.domain.NotificationSourceType;
 import com.theo.community_api.notification.domain.NotificationType;
+import com.theo.community_api.notification.dto.NotificationListResponse;
 import com.theo.community_api.notification.repository.NotificationRepository;
 import com.theo.community_api.notification.service.NotificationService;
 import com.theo.community_api.post.domain.Post;
@@ -16,9 +19,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
@@ -235,5 +242,153 @@ public class NotificationServiceTest {
         // then
         verify(notificationRepository, never())
                 .save(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("첫 페이지는 요청 크기보다 하나 더 조회하여 다음 페이지 여부를 반환한다")
+    void reads_first_notification_page() {
+        // given
+        Notification first = createLikeNotification(30L);
+        Notification second = createLikeNotification(20L);
+        Notification lookAhead = createLikeNotification(10L);
+        PageRequest pageRequest = PageRequest.of(0, 3);
+
+        given(notificationRepository.findFirstPage(
+                postAuthor.getId(),
+                pageRequest
+        )).willReturn(List.of(first, second, lookAhead));
+
+        // when
+        NotificationListResponse response =
+                notificationService.readNotifications(
+                        postAuthor.getId(),
+                        null,
+                        2
+                );
+
+        // then
+        verify(notificationRepository)
+                .findFirstPage(postAuthor.getId(), pageRequest);
+
+        verify(notificationRepository, never())
+                .findNextPage(anyLong(), anyLong(), any());
+
+        assertThat(response.getNotifications()).hasSize(2);
+        assertThat(response.isHasNext()).isTrue();
+        assertThat(response.getNextCursor()).isEqualTo(20L);
+    }
+
+    @Test
+    @DisplayName("커서가 있으면 다음 페이지를 조회한다")
+    void reads_next_notification_page() {
+        // given
+        Notification notification = createLikeNotification(20L);
+        PageRequest pageRequest = PageRequest.of(0, 3);
+
+        given(notificationRepository.findNextPage(
+                postAuthor.getId(),
+                30L,
+                pageRequest
+        )).willReturn(List.of(notification));
+
+        // when
+        NotificationListResponse response =
+                notificationService.readNotifications(
+                        postAuthor.getId(),
+                        30L,
+                        2
+                );
+
+        // then
+        verify(notificationRepository)
+                .findNextPage(postAuthor.getId(), 30L, pageRequest);
+        verify(notificationRepository, never())
+                .findFirstPage(anyLong(), any());
+
+        assertThat(response.getNotifications()).hasSize(1);
+        assertThat(response.isHasNext()).isFalse();
+        assertThat(response.getNextCursor()).isEqualTo(20L);
+    }
+
+    @Test
+    @DisplayName("미읽음 알림을 단건 읽음 처리한다")
+    void reads_notification() {
+        // given
+        given(notificationRepository.markAsRead(
+                postAuthor.getId(),
+                10L
+        )).willReturn(1);
+
+        // when
+        notificationService.readNotification(
+                postAuthor.getId(),
+                10L
+        );
+
+        // then
+        verify(notificationRepository)
+                .markAsRead(postAuthor.getId(), 10L);
+        verify(notificationRepository, never())
+                .existsByIdAndReceiverId(anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("이미 읽은 자신의 알림은 성공 처리한다")
+    void reads_already_read_notification_idempotently() {
+        // given
+        given(notificationRepository.markAsRead(
+                postAuthor.getId(),
+                10L
+        )).willReturn(0);
+        given(notificationRepository.existsByIdAndReceiverId(
+                10L,
+                postAuthor.getId()
+        )).willReturn(true);
+
+        // when
+        notificationService.readNotification(
+                postAuthor.getId(),
+                10L
+        );
+
+        // then
+        verify(notificationRepository)
+                .existsByIdAndReceiverId(10L, postAuthor.getId());
+    }
+
+    @Test
+    @DisplayName("존재하지 않거나 다른 사용자의 알림은 NOTIFICATION_NOT_FOUND가 발생한다")
+    void fails_when_notification_is_not_owned() {
+        // given
+        given(notificationRepository.markAsRead(
+                postAuthor.getId(),
+                10L
+        )).willReturn(0);
+        given(notificationRepository.existsByIdAndReceiverId(
+                10L,
+                postAuthor.getId()
+        )).willReturn(false);
+
+        // when
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> notificationService.readNotification(
+                        postAuthor.getId(),
+                        10L
+                )
+        );
+
+        // then
+        assertThat(exception.getErrorCode())
+                .isEqualTo(ErrorCode.NOTIFICATION_NOT_FOUND);
+    }
+
+    private Notification createLikeNotification(Long id) {
+        Notification notification =
+                Notification.createLike(postAuthor, actor, post);
+
+        ReflectionTestUtils.setField(notification, "id", id);
+
+        return notification;
     }
 }
