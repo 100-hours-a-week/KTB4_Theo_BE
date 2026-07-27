@@ -227,7 +227,7 @@ public class PostService {
     // 게시글 좋아요 토글
     @Transactional
     public PostLikeResponse togglePostLike(Long loginUserId, Long postId) {
-        Post post = postRepository.findByIdWithUser(postId)
+        Post post = postRepository.findByIdWithUserForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
         if (post.isBlinded()) {

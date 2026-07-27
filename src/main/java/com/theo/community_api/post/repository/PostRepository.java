@@ -1,8 +1,10 @@
 package com.theo.community_api.post.repository;
 
 import com.theo.community_api.post.domain.Post;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -43,6 +45,19 @@ public interface PostRepository extends JpaRepository<Post, Long> {
           and p.isBlinded = false
     """)
     Optional<Post> findByIdWithUser(
+            @Param("postId") Long postId
+    );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        select p
+        from Post p
+        join fetch p.user
+        where p.id = :postId
+          and p.deletedAt is null
+          and p.isBlinded = false
+    """)
+    Optional<Post> findByIdWithUserForUpdate(
             @Param("postId") Long postId
     );
 }
