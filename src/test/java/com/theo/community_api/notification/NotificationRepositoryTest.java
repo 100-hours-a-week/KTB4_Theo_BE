@@ -14,6 +14,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -68,6 +71,9 @@ class NotificationRepositoryTest {
         // then
         Notification saved = notificationRepository.saveAndFlush(notification);
 
+        assertThat(saved.getId()).isNotNull();
+        assertThat(saved.getReceiver().getId()).isEqualTo(receiver.getId());
+        assertThat(saved.getActor().getId()).isEqualTo(actor.getId());
         assertThat(saved.getType()).isEqualTo(NotificationType.COMMENT);
         assertThat(saved.getSourceType()).isEqualTo(NotificationSourceType.COMMENT);
         assertThat(saved.getSourceId()).isEqualTo(comment.getId());
@@ -141,6 +147,82 @@ class NotificationRepositoryTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
+    @Test
+    @DisplayName("수신자의 알림을 최신순으로 조회한다")
+    void find_first_notification_page() {
+        // given
+        User receiver = saveUser("receiver@test.com", "수신자");
+        User actor = saveUser("actor@test.com", "행위자");
+
+        Notification first = saveLikeNotification(
+                receiver,
+                actor,
+                savePost(receiver)
+        );
+        Notification second = saveLikeNotification(
+                receiver,
+                actor,
+                savePost(receiver)
+        );
+
+        notificationRepository.flush();
+        entityManager.clear();
+
+        // when
+        List<Notification> notifications =
+                notificationRepository.findFirstPage(
+                        receiver.getId(),
+                        PageRequest.of(0, 2)
+                );
+
+        // then
+        assertThat(notifications)
+                .extracting(Notification::getId)
+                .containsExactly(second.getId(), first.getId());
+    }
+
+    @Test
+    @DisplayName("커서보다 이전 알림을 최신순으로 조회한다")
+    void find_next_notification_page() {
+        // given
+        User receiver = saveUser("receiver@test.com", "수신자");
+        User actor = saveUser("actor@test.com", "행위자");
+
+        Notification first = saveLikeNotification(
+                receiver,
+                actor,
+                savePost(receiver)
+        );
+        Notification second = saveLikeNotification(
+                receiver,
+                actor,
+                savePost(receiver)
+        );
+        Notification cursor = saveLikeNotification(
+                receiver,
+                actor,
+                savePost(receiver)
+        );
+
+        notificationRepository.flush();
+        entityManager.clear();
+
+        // when
+        List<Notification> notifications =
+                notificationRepository.findNextPage(
+                        receiver.getId(),
+                        cursor.getId(),
+                        PageRequest.of(0, 2)
+                );
+
+        // then
+        assertThat(notifications)
+                .extracting(Notification::getId)
+                .containsExactly(second.getId(), first.getId());
+    }
+
+
+
     private User saveUser(String email, String nickname) {
         User user = new User(email, "password", nickname, null);
         entityManager.persist(user);
@@ -163,5 +245,15 @@ class NotificationRepositoryTest {
         Reply reply = new Reply(comment, author, content);
         entityManager.persist(reply);
         return reply;
+    }
+
+    private Notification saveLikeNotification(
+            User receiver,
+            User actor,
+            Post post
+    ) {
+        return notificationRepository.save(
+                Notification.createLike(receiver, actor, post)
+        );
     }
 }
