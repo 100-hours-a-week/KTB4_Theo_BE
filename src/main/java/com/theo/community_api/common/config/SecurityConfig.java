@@ -4,7 +4,6 @@ import com.theo.community_api.auth.security.JwtAccessDeniedHandler;
 import com.theo.community_api.auth.security.JwtAuthenticationEntryPoint;
 import com.theo.community_api.auth.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -52,18 +51,9 @@ public class SecurityConfig {
                         .accessDeniedHandler(jwtAccessDeniedHandler)
                 )
 
-                // H2 Console iframe 허용
-                .headers(headers -> headers
-                        .frameOptions(frame -> frame.sameOrigin())
-                )
-
                 .authorizeHttpRequests(auth -> auth
                         // CORS 사전 요청 허용
                         .requestMatchers(HttpMethod.OPTIONS, "/**")
-                        .permitAll()
-
-                        // H2 Console 허용
-                        .requestMatchers(PathRequest.toH2Console())
                         .permitAll()
 
                         // 회원가입과 로그인, 리프레시 토큰 재발급, 로그아웃은 허용
