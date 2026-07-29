@@ -157,13 +157,6 @@ public class Notification extends BaseTimeEntity {
         );
     }
 
-    // 이미 읽은 알림이라면 최초 읽은 시각으로 처리
-    public void read() {
-        if (readAt == null) {
-            readAt = LocalDateTime.now();
-        }
-    }
-
     public boolean isRead() {
         return readAt != null;
     }
