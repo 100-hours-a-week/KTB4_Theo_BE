@@ -19,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -33,6 +34,8 @@ import static org.mockito.Mockito.*;
 public class NotificationServiceTest {
     @Mock
     private NotificationRepository notificationRepository;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private NotificationService notificationService;
 
@@ -43,8 +46,7 @@ public class NotificationServiceTest {
 
     @BeforeEach
     void setUp() { // 게시글 작성자, 게시글, 행위자 설정
-        notificationService =
-                new NotificationService(notificationRepository);
+        notificationService = new NotificationService(notificationRepository, eventPublisher);
 
         postAuthor = new User(
                 "author@test.com",

@@ -9,11 +9,13 @@ import com.theo.community_api.notification.domain.NotificationType;
 import com.theo.community_api.notification.dto.NotificationListResponse;
 import com.theo.community_api.notification.dto.NotificationResponse;
 import com.theo.community_api.notification.dto.NotificationUnreadCountResponse;
+import com.theo.community_api.notification.event.NotificationCreatedEvent;
 import com.theo.community_api.notification.repository.NotificationRepository;
 import com.theo.community_api.post.domain.Post;
 import com.theo.community_api.reply.domain.Reply;
 import com.theo.community_api.user.domain.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +30,7 @@ public class NotificationService {
     private static final int MAX_PAGE_SIZE = 100;
 
     private final NotificationRepository notificationRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public void createLikeNotification(Post post, User actor) {
@@ -53,8 +56,8 @@ public class NotificationService {
         }
 
         Notification notification = Notification.createLike(receiver, actor, post);
-
         notificationRepository.save(notification);
+        publishNotificationCreatedEvent(notification);
     }
 
     @Transactional
@@ -67,8 +70,8 @@ public class NotificationService {
         }
 
         Notification notification = Notification.createComment(receiver, actor, comment);
-
         notificationRepository.save(notification);
+        publishNotificationCreatedEvent(notification);
     }
 
     @Transactional
@@ -81,8 +84,8 @@ public class NotificationService {
         }
 
         Notification notification = Notification.createReply(receiver, actor, reply);
-
         notificationRepository.save(notification);
+        publishNotificationCreatedEvent(notification);
     }
 
     public NotificationListResponse readNotifications(
@@ -181,5 +184,17 @@ public class NotificationService {
         if (lastNotificationId != null && lastNotificationId < 1) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
+    }
+
+    // 사용자에게 전달할 새로운 알림이 생성되었다는 것을 스프링에게 알리기
+    private void publishNotificationCreatedEvent(
+            Notification notification
+    ) {
+        eventPublisher.publishEvent(
+                new NotificationCreatedEvent(
+                        notification.getReceiver().getId(),
+                        NotificationResponse.from(notification)
+                )
+        );
     }
 }

@@ -5,16 +5,20 @@ import com.theo.community_api.common.ApiResponse;
 import com.theo.community_api.notification.dto.NotificationListResponse;
 import com.theo.community_api.notification.dto.NotificationUnreadCountResponse;
 import com.theo.community_api.notification.service.NotificationService;
+import com.theo.community_api.notification.sse.SseEmitterService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
 @RequestMapping("/notifications")
 @RequiredArgsConstructor
 public class NotificationController {
     private final NotificationService notificationService;
+    private final SseEmitterService sseEmitterService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<NotificationListResponse>> readNotifications(
@@ -79,6 +83,18 @@ public class NotificationController {
 
         return ResponseEntity.ok(
                 ApiResponse.of("notification_read_all_success")
+        );
+    }
+
+    @GetMapping(
+            value = "/subscribe",
+            produces = MediaType.TEXT_EVENT_STREAM_VALUE
+    )
+    public SseEmitter subscribe(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ){
+        return sseEmitterService.subscribe(
+                userDetails.getUserId()
         );
     }
 }

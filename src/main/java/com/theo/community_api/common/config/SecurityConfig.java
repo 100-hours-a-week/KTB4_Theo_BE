@@ -3,6 +3,7 @@ package com.theo.community_api.common.config;
 import com.theo.community_api.auth.security.JwtAccessDeniedHandler;
 import com.theo.community_api.auth.security.JwtAuthenticationEntryPoint;
 import com.theo.community_api.auth.security.JwtAuthenticationFilter;
+import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -52,6 +53,12 @@ public class SecurityConfig {
                 )
 
                 .authorizeHttpRequests(auth -> auth
+                        // SSE 비동기 요청의 내부 재디스패치 허용
+                        .dispatcherTypeMatchers(
+                                DispatcherType.ASYNC,
+                                DispatcherType.ERROR
+                        ).permitAll()
+
                         // CORS 사전 요청 허용
                         .requestMatchers(HttpMethod.OPTIONS, "/**")
                         .permitAll()
