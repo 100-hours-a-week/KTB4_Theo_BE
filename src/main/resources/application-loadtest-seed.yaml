@@ -1,0 +1,15 @@
+server:
+  port: 0
+
+loadtest:
+  seed:
+    user-count: 500
+    notifications-per-user: 100
+    unread-notifications-per-user: 20
+    account-prefix: loadtest
+    account-domain: example.com
+
+logging:
+  level:
+    org.springframework.jdbc.core.JdbcTemplate: INFO
+    org.springframework.jdbc.core.StatementCreatorUtils: INFO

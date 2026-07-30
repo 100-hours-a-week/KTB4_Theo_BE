@@ -28,6 +28,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation' // valid
 	implementation 'org.springframework.boot:spring-boot-starter-jdbc' // 선택: 코드로 쿼리 테스트 시 권장
 	implementation 'org.springframework.boot:spring-boot-starter-security' // spring security 추가
+	implementation 'org.springframework.boot:spring-boot-starter-actuator' // spring actuator 추가 (부하 테스트)
 	implementation 'io.jsonwebtoken:jjwt-api:0.13.0' // JWT 생성 및 검증 API
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.13.0' // JWT 구현체
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.13.0' // JWT JSON 직렬화/역직렬화

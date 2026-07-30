@@ -1,0 +1,13 @@
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - health
+          - metrics
+          - loadtestsnapshot
+      path-mapping:
+        loadtestsnapshot: loadtest-snapshot
+  endpoint:
+    health:
+      show-details: always

@@ -63,7 +63,11 @@ public class SecurityConfig {
                                 "/auth/reissue",
                                 "/auth/logout",
                                 "/error",
-                                "/images/**"
+                                "/images/**",
+                                "/actuator/health",
+                                "/actuator/metrics",
+                                "/actuator/metrics/**",
+                                "/actuator/loadtest-snapshot"
                         ).permitAll()
 
                         // 관리자 API
