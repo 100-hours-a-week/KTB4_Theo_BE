@@ -318,6 +318,8 @@ Ramp-down: 30초
 |---:|---:|---:|
 | 2,000 | 400 | 48,000 |
 | 5,000 | 1,000 | 120,000 |
+| 6,250 | 1,250 | 150,000 |
+| 7,500 | 1,500 | 180,000 |
 | 10,000 | 2,000 | 240,000 |
 
 ### 10 VU 사전 검증
@@ -380,6 +382,54 @@ k6 run \
   load-tests/k6/unread-count-polling-limit.js
 ```
 
+### 6,250 VU
+
+Actuator 수집:
+
+```bash
+load-tests/monitoring/collect-actuator.sh \
+  polling-limit-6250vu-5s \
+  5 \
+  0
+```
+
+k6 실행:
+
+```bash
+k6 run \
+  --summary-export=load-tests/k6/results/polling-limit-6250vu-5s.json \
+  -e TARGET_VUS=6250 \
+  -e POLL_INTERVAL_SECONDS=5 \
+  -e RAMP_UP_SECONDS=60 \
+  -e STEADY_SECONDS=120 \
+  -e RAMP_DOWN_SECONDS=30 \
+  load-tests/k6/unread-count-polling-limit.js
+```
+
+### 7,500 VU
+
+Actuator 수집:
+
+```bash
+load-tests/monitoring/collect-actuator.sh \
+  polling-limit-7500vu-5s \
+  5 \
+  0
+```
+
+k6 실행:
+
+```bash
+k6 run \
+  --summary-export=load-tests/k6/results/polling-limit-7500vu-5s.json \
+  -e TARGET_VUS=7500 \
+  -e POLL_INTERVAL_SECONDS=5 \
+  -e RAMP_UP_SECONDS=60 \
+  -e STEADY_SECONDS=120 \
+  -e RAMP_DOWN_SECONDS=30 \
+  load-tests/k6/unread-count-polling-limit.js
+```
+
 ### 10,000 VU
 
 Actuator 수집:
@@ -404,7 +454,7 @@ k6 run \
   load-tests/k6/unread-count-polling-limit.js
 ```
 
-각 단계에서 k6 종료 후 Actuator 수집기를 `Ctrl+C`로 종료한다. 실패율 1% 이상, p95 500ms 이상, p99 1초 이상, CPU 80% 지속 또는 HikariCP pending 발생 시 다음 VU 단계로 진행하지 않고 해당 구간을 분석한다.
+각 단계에서 k6 종료 후 Actuator 수집기를 `Ctrl+C`로 종료한다. 실패율 1% 이상, p95 500ms 이상, p99 1초 이상, CPU 80% 지속 또는 HikariCP pending 발생 시 해당 구간을 분석하고 중간 VU를 추가해 임계 범위를 좁힌다.
 
 전체 HTTP 요청은 폴링 요청만 포함한다. 최종 비교에는 아래 사전 발급 고유 인증 폴링 전용 지표를 사용한다.
 

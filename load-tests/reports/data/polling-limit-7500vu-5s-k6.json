@@ -1,0 +1,212 @@
+{
+    "metrics": {
+        "data_received": {
+            "rate": 547608.6454559508,
+            "count": 117678787
+        },
+        "polling_waiting{phase:steady,auth_mode:preissued-unique}": {
+            "avg": 203.34144372222312,
+            "min": 0.815,
+            "med": 1.611,
+            "max": 2715.54,
+            "p(90)": 885.6535000000003,
+            "p(95)": 1575.1059999999986,
+            "p(99)": 2439.64432,
+            "thresholds": {
+                "p(95)<500": true,
+                "p(99)<1000": true
+            }
+        },
+        "http_reqs": {
+            "count": 254715,
+            "rate": 1185.2954953326678
+        },
+        "data_sent": {
+            "count": 95750669,
+            "rate": 445567.93530333636
+        },
+        "iterations": {
+            "count": 254715,
+            "rate": 1185.2954953326678
+        },
+        "checks{scope:polling,phase:steady,auth_mode:preissued-unique}": {
+            "passes": 180000,
+            "fails": 0,
+            "thresholds": {
+                "rate>0.99": false
+            },
+            "value": 1
+        },
+        "polling_failed": {
+            "fails": 254715,
+            "passes": 0,
+            "value": 0
+        },
+        "polling_waiting": {
+            "med": 1.603,
+            "max": 2715.54,
+            "p(90)": 415.8416000000002,
+            "p(95)": 1234.8080999999986,
+            "p(99)": 2348.5400199999995,
+            "avg": 148.30837013917713,
+            "min": 0.803
+        },
+        "http_req_duration": {
+            "min": 0.852,
+            "med": 1.672,
+            "max": 2715.662,
+            "p(90)": 416.3098000000002,
+            "p(95)": 1235.0381999999997,
+            "p(99)": 2350.1027199999994,
+            "avg": 149.11304819897052
+        },
+        "http_req_tls_handshaking": {
+            "p(95)": 0,
+            "p(99)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0
+        },
+        "http_req_waiting": {
+            "p(95)": 1234.8080999999986,
+            "p(99)": 2348.5400199999995,
+            "avg": 148.30837013917716,
+            "min": 0.803,
+            "med": 1.603,
+            "max": 2715.54,
+            "p(90)": 415.8416000000002
+        },
+        "polling_failed{phase:steady,auth_mode:preissued-unique}": {
+            "passes": 0,
+            "fails": 180000,
+            "thresholds": {
+                "rate<0.01": false
+            },
+            "value": 0
+        },
+        "http_req_duration{expected_response:true}": {
+            "avg": 149.11304819897052,
+            "min": 0.852,
+            "med": 1.672,
+            "max": 2715.662,
+            "p(90)": 416.3098000000002,
+            "p(95)": 1235.0381999999997,
+            "p(99)": 2350.1027199999994
+        },
+        "http_req_failed": {
+            "passes": 0,
+            "fails": 254715,
+            "value": 0
+        },
+        "polling_requests": {
+            "count": 254715,
+            "rate": 1185.2954953326678
+        },
+        "http_req_blocked": {
+            "p(95)": 0.045,
+            "p(99)": 0.855,
+            "avg": 0.05289169463924852,
+            "min": 0,
+            "med": 0.003,
+            "max": 427.716,
+            "p(90)": 0.015
+        },
+        "polling_duration{phase:steady,auth_mode:preissued-unique}": {
+            "avg": 204.4156299277815,
+            "min": 0.861,
+            "med": 1.683,
+            "max": 2715.662,
+            "p(90)": 889.6209000000002,
+            "p(95)": 1583.9368499999998,
+            "p(99)": 2439.89427,
+            "thresholds": {
+                "p(95)<500": true,
+                "p(99)<1000": true
+            }
+        },
+        "iteration_duration": {
+            "avg": 4929.499935089351,
+            "min": 5.058125,
+            "med": 4999.830916,
+            "max": 7961.041541,
+            "p(90)": 5075.849617,
+            "p(95)": 5897.6732042,
+            "p(99)": 7361.92788114
+        },
+        "polling_requests{phase:steady,auth_mode:preissued-unique}": {
+            "count": 180000,
+            "rate": 837.6153314876634,
+            "thresholds": {
+                "count>0": false
+            }
+        },
+        "http_req_connecting": {
+            "p(99)": 0.739,
+            "avg": 0.022106134306970535,
+            "min": 0,
+            "med": 0,
+            "max": 41.034,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "vus_max": {
+            "value": 7500,
+            "min": 7500,
+            "max": 7500
+        },
+        "checks": {
+            "passes": 254715,
+            "fails": 0,
+            "value": 1
+        },
+        "polling_duration": {
+            "min": 0.852,
+            "med": 1.672,
+            "max": 2715.662,
+            "p(90)": 416.3098000000002,
+            "p(95)": 1235.0381999999997,
+            "p(99)": 2350.1027199999994,
+            "avg": 149.11304819897052
+        },
+        "http_req_receiving": {
+            "min": 0.006,
+            "med": 0.053,
+            "max": 163.972,
+            "p(90)": 0.147,
+            "p(95)": 0.186,
+            "p(99)": 0.342,
+            "avg": 0.08541775317509291
+        },
+        "vus": {
+            "value": 4,
+            "min": 4,
+            "max": 7500
+        },
+        "http_req_sending": {
+            "min": 0.002,
+            "med": 0.01,
+            "max": 763.746,
+            "p(90)": 0.031,
+            "p(95)": 0.053,
+            "p(99)": 0.512,
+            "avg": 0.7192603066170654
+        }
+    },
+    "root_group": {
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "미읽음 알림 개수 응답이 정상이다": {
+                    "name": "미읽음 알림 개수 응답이 정상이다",
+                    "path": "::미읽음 알림 개수 응답이 정상이다",
+                    "id": "073be441d33f04fef686bf7315aef7bc",
+                    "passes": 254715,
+                    "fails": 0
+                }
+            },
+        "name": ""
+    }
+}
