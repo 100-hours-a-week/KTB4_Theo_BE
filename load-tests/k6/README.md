@@ -4,6 +4,7 @@
 
 - `prepare-users.js`: 부하 테스트용 회원을 미리 생성한다.
 - `unread-count-polling.js`: 각 가상 사용자가 자기 계정으로 로그인한 뒤 미읽음 알림 개수를 주기적으로 조회한다.
+- `unread-count-polling-limit.js`: 사전 발급한 사용자별 JWT를 `SharedArray`로 읽고 로그인 없이 다중 사용자의 폴링 API 처리 한계를 측정한다.
 - `results/`: 반복 실행하는 k6 결과 파일을 저장한다. Git에는 포함하지 않는다.
 - `../reports/data/`: 최종 분석에 사용한 결과만 선별해 보존한다. Git에 포함한다.
 - `../reports/polling-load-test.md`: 확정 결과와 분석을 기록한다.
@@ -257,4 +258,160 @@ load-tests/reports/data/
 ├── polling-500vu-30s-actuator.csv
 ├── polling-500vu-5s-k6.json
 └── polling-500vu-5s-actuator.csv
+```
+
+## 11. 사전 발급 고유 JWT 기반 폴링 한계 테스트
+
+2,000 VU 이상에서는 `unread-count-polling-limit.js`를 사용한다. 측정 전에 테스트 사용자별 JWT를 직접 생성하고, k6는 해당 JSON 파일을 `SharedArray`로 한 번만 읽는다.
+
+```text
+VU 1     → loadtest1 사용자의 JWT
+VU 2     → loadtest2 사용자의 JWT
+...
+VU 10000 → loadtest10000 사용자의 JWT
+```
+
+부하 측정 중 로그인 요청과 BCrypt 검증, JWT 발급은 발생하지 않는다. 각 폴링 요청의 JWT 검증, 사용자 조회, 미읽음 알림 count 쿼리와 Spring Security 처리는 그대로 포함한다.
+
+### JWT 파일 생성
+
+먼저 `prepare-loadtest-users.sql`과 `prepare-loadtest-notifications.sql`로 필요한 DB 데이터를 준비한다.
+
+`.env`의 `JWT_SECRET`을 현재 Node.js 프로세스에만 읽혀 사용자별 JWT를 생성한다.
+
+```bash
+node --env-file=.env \
+  load-tests/token/generate-loadtest-tokens.mjs \
+  --count 10000
+```
+
+기본 출력:
+
+```text
+load-tests/k6/.tokens/polling-users.json
+```
+
+토큰 파일은 권한 `600`으로 생성되며 `.gitignore`에 의해 Git에서 제외된다. 기본 만료시간은 애플리케이션 Access Token과 동일한 30분이므로 생성 직후 테스트를 실행한다.
+
+스크립트는 `loadtest1@example.com`부터 요청한 수만큼 계정이 빠짐없이 존재하는지 검증한다. 다음 환경변수로 DB 접속과 JWT 설정을 변경할 수 있다.
+
+| 환경변수 | 기본값 |
+|---|---|
+| `DB_HOST` | `localhost` |
+| `DB_PORT` | `3306` |
+| `DB_USERNAME` | `root` |
+| `DB_PASSWORD` | 빈 문자열 |
+| `DB_NAME` | `community_api` |
+| `JWT_ISSUER` | `community-api` |
+| `JWT_ACCESS_TOKEN_EXPIRATION_MS` | `1800000` |
+
+공통 조건:
+
+```text
+폴링 주기: 5초
+Ramp-up: 60초
+Steady state: 120초
+Ramp-down: 30초
+```
+
+| VU | 예상 Steady RPS | 예상 Steady 요청 수 |
+|---:|---:|---:|
+| 2,000 | 400 | 48,000 |
+| 5,000 | 1,000 | 120,000 |
+| 10,000 | 2,000 | 240,000 |
+
+### 10 VU 사전 검증
+
+```bash
+k6 run \
+  -e TARGET_VUS=10 \
+  -e POLL_INTERVAL_SECONDS=5 \
+  -e RAMP_UP_SECONDS=10 \
+  -e STEADY_SECONDS=20 \
+  -e RAMP_DOWN_SECONDS=5 \
+  load-tests/k6/unread-count-polling-limit.js
+```
+
+### 2,000 VU
+
+Actuator 수집:
+
+```bash
+load-tests/monitoring/collect-actuator.sh \
+  polling-limit-2000vu-5s \
+  5 \
+  0
+```
+
+k6 실행:
+
+```bash
+k6 run \
+  --summary-export=load-tests/k6/results/polling-limit-2000vu-5s.json \
+  -e TARGET_VUS=2000 \
+  -e POLL_INTERVAL_SECONDS=5 \
+  -e RAMP_UP_SECONDS=60 \
+  -e STEADY_SECONDS=120 \
+  -e RAMP_DOWN_SECONDS=30 \
+  load-tests/k6/unread-count-polling-limit.js
+```
+
+### 5,000 VU
+
+Actuator 수집:
+
+```bash
+load-tests/monitoring/collect-actuator.sh \
+  polling-limit-5000vu-5s \
+  5 \
+  0
+```
+
+k6 실행:
+
+```bash
+k6 run \
+  --summary-export=load-tests/k6/results/polling-limit-5000vu-5s.json \
+  -e TARGET_VUS=5000 \
+  -e POLL_INTERVAL_SECONDS=5 \
+  -e RAMP_UP_SECONDS=60 \
+  -e STEADY_SECONDS=120 \
+  -e RAMP_DOWN_SECONDS=30 \
+  load-tests/k6/unread-count-polling-limit.js
+```
+
+### 10,000 VU
+
+Actuator 수집:
+
+```bash
+load-tests/monitoring/collect-actuator.sh \
+  polling-limit-10000vu-5s \
+  5 \
+  0
+```
+
+k6 실행:
+
+```bash
+k6 run \
+  --summary-export=load-tests/k6/results/polling-limit-10000vu-5s.json \
+  -e TARGET_VUS=10000 \
+  -e POLL_INTERVAL_SECONDS=5 \
+  -e RAMP_UP_SECONDS=60 \
+  -e STEADY_SECONDS=120 \
+  -e RAMP_DOWN_SECONDS=30 \
+  load-tests/k6/unread-count-polling-limit.js
+```
+
+각 단계에서 k6 종료 후 Actuator 수집기를 `Ctrl+C`로 종료한다. 실패율 1% 이상, p95 500ms 이상, p99 1초 이상, CPU 80% 지속 또는 HikariCP pending 발생 시 다음 VU 단계로 진행하지 않고 해당 구간을 분석한다.
+
+전체 HTTP 요청은 폴링 요청만 포함한다. 최종 비교에는 아래 사전 발급 고유 인증 폴링 전용 지표를 사용한다.
+
+```text
+polling_requests{phase:steady,auth_mode:preissued-unique}
+polling_failed{phase:steady,auth_mode:preissued-unique}
+polling_duration{phase:steady,auth_mode:preissued-unique}
+polling_waiting{phase:steady,auth_mode:preissued-unique}
+checks{scope:polling,phase:steady,auth_mode:preissued-unique}
 ```
