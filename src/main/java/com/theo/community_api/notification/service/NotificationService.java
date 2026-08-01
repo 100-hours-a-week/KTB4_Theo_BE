@@ -43,7 +43,8 @@ public class NotificationService {
 
         // 이미 좋아요 알림 이력이 있으면 생성하지 않는다.
         boolean alreadyExists = notificationRepository
-                .existsByTypeAndActorIdAndSourceTypeAndSourceId(
+                .existsByReceiverIdAndTypeAndActorIdAndSourceTypeAndSourceId(
+                        receiver.getId(),
                         NotificationType.LIKE,
                         actor.getId(),
                         NotificationSourceType.POST,

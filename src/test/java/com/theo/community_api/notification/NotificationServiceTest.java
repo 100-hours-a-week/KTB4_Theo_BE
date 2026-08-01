@@ -91,7 +91,8 @@ public class NotificationServiceTest {
     @DisplayName("다른 사용자의 게시글에 좋아요를 누르면 알림을 생성한다")
     void creates_like_notification_for_another_post() {
         given(notificationRepository
-                .existsByTypeAndActorIdAndSourceTypeAndSourceId(
+                .existsByReceiverIdAndTypeAndActorIdAndSourceTypeAndSourceId(
+                        postAuthor.getId(),
                         NotificationType.LIKE,
                         actor.getId(),
                         NotificationSourceType.POST,
@@ -119,7 +120,8 @@ public class NotificationServiceTest {
     void does_not_create_duplicate_like_notification() {
         // given : 이미 좋아요 알림이 주어진 상태
         given(notificationRepository
-                .existsByTypeAndActorIdAndSourceTypeAndSourceId(
+                .existsByReceiverIdAndTypeAndActorIdAndSourceTypeAndSourceId(
+                        postAuthor.getId(),
                         NotificationType.LIKE,
                         actor.getId(),
                         NotificationSourceType.POST,
@@ -132,7 +134,8 @@ public class NotificationServiceTest {
 
         // then
         verify(notificationRepository)
-                .existsByTypeAndActorIdAndSourceTypeAndSourceId(
+                .existsByReceiverIdAndTypeAndActorIdAndSourceTypeAndSourceId(
+                        postAuthor.getId(),
                         NotificationType.LIKE,
                         actor.getId(),
                         NotificationSourceType.POST,

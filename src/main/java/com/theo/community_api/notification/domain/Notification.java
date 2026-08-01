@@ -18,8 +18,9 @@ import java.time.LocalDateTime;
         name="notifications",
         uniqueConstraints={
                 @UniqueConstraint( // 중복 추가를 방지
-                        name = "uk_notification_source_actor",
+                        name = "uk_notification_receiver_source_actor",
                         columnNames = {
+                                "receiver_id",
                                 "type",
                                 "actor_id",
                                 "source_type",

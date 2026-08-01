@@ -12,7 +12,8 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
-    boolean existsByTypeAndActorIdAndSourceTypeAndSourceId(
+    boolean existsByReceiverIdAndTypeAndActorIdAndSourceTypeAndSourceId(
+            Long receiverId,
             NotificationType type,
             Long actorId,
             NotificationSourceType sourceType,

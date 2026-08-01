@@ -105,7 +105,7 @@ class NotificationRepositoryTest {
     }
 
     @Test
-    @DisplayName("알림 타입과 행위자와 원본으로 기존 알림을 확인한다")
+    @DisplayName("수신자와 알림 타입과 행위자와 원본으로 기존 알림을 확인한다")
     void exists_notification_by_unique_source() {
         // given
         User receiver = saveUser("receiver@test.com", "수신자");
@@ -118,7 +118,8 @@ class NotificationRepositoryTest {
         notificationRepository.saveAndFlush(Notification.createLike(receiver, actor, post));
 
         boolean exists = notificationRepository
-                .existsByTypeAndActorIdAndSourceTypeAndSourceId(
+                .existsByReceiverIdAndTypeAndActorIdAndSourceTypeAndSourceId(
+                        receiver.getId(),
                         NotificationType.LIKE,
                         actor.getId(),
                         NotificationSourceType.POST,
@@ -145,6 +146,25 @@ class NotificationRepositoryTest {
 
         assertThatThrownBy(() -> notificationRepository.saveAndFlush(duplicate))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("원본과 행위자가 같아도 수신자가 다르면 알림을 저장할 수 있다")
+    void allow_same_source_notification_for_different_receivers() {
+        // given
+        User firstReceiver = saveUser("receiver1@test.com", "첫 번째 수신자");
+        User secondReceiver = saveUser("receiver2@test.com", "두 번째 수신자");
+        User actor = saveUser("actor@test.com", "행위자");
+        Post post = savePost(firstReceiver);
+
+        // when
+        notificationRepository.saveAndFlush(Notification.createLike(firstReceiver, actor, post));
+        Notification second = notificationRepository.saveAndFlush(
+                Notification.createLike(secondReceiver, actor, post)
+        );
+
+        // then
+        assertThat(second.getId()).isNotNull();
     }
 
     @Test
