@@ -9,6 +9,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -60,5 +62,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.of("internal_server_error"));
+    }
+
+    @ExceptionHandler({
+            AsyncRequestTimeoutException.class,
+            AsyncRequestNotUsableException.class
+    })
+    public void handleAsyncRequestException(Exception exception) {
+        // SSE 연결 종료 과정에서 발생할 수 있으므로
+        // 별도의 JSON 응답을 작성하지 않는다.
     }
 }
