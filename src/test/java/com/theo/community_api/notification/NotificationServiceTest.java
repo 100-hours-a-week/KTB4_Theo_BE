@@ -284,7 +284,7 @@ public class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("커서가 있으면 다음 페이지를 조회한다")
+    @DisplayName("커서가 있으면 다음 페이지를 조회하고, 마지막 페이지의 다음 커서는 없다")
     void reads_next_notification_page() {
         // given
         Notification notification = createLikeNotification(20L);
@@ -312,7 +312,7 @@ public class NotificationServiceTest {
 
         assertThat(response.getNotifications()).hasSize(1);
         assertThat(response.isHasNext()).isFalse();
-        assertThat(response.getNextCursor()).isEqualTo(20L);
+        assertThat(response.getNextCursor()).isNull();
     }
 
     @Test

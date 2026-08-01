@@ -123,7 +123,9 @@ public class NotificationService {
             responses.add(NotificationResponse.from(notification));
         }
 
-        Long nextCursor = responses.isEmpty() ? null : responses.getLast().getNotificationId();
+        Long nextCursor = hasNext
+                ? responses.getLast().getNotificationId()
+                : null;
 
         return new NotificationListResponse(
                 responses,
