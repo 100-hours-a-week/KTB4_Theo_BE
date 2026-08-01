@@ -241,6 +241,123 @@ class NotificationRepositoryTest {
                 .containsExactly(second.getId(), first.getId());
     }
 
+    @Test
+    @DisplayName("단건 읽음 처리는 수신자의 알림만 갱신하고 최초 읽은 시각을 유지한다")
+    void mark_notification_as_read_idempotently_for_receiver() {
+        // given
+        User receiver = saveUser("receiver@test.com", "수신자");
+        User otherReceiver = saveUser("other@test.com", "다른 수신자");
+        User actor = saveUser("actor@test.com", "행위자");
+        Notification notification = saveLikeNotification(
+                receiver,
+                actor,
+                savePost(receiver)
+        );
+        Notification otherNotification = saveLikeNotification(
+                otherReceiver,
+                actor,
+                savePost(otherReceiver)
+        );
+        notificationRepository.flush();
+        entityManager.clear();
+
+        // when
+        int otherReceiverUpdated = notificationRepository.markAsRead(
+                receiver.getId(),
+                otherNotification.getId()
+        );
+        int firstUpdated = notificationRepository.markAsRead(
+                receiver.getId(),
+                notification.getId()
+        );
+        Notification firstRead = notificationRepository.findById(notification.getId()).orElseThrow();
+        var firstReadAt = firstRead.getReadAt();
+        int secondUpdated = notificationRepository.markAsRead(
+                receiver.getId(),
+                notification.getId()
+        );
+
+        // then
+        Notification readAgain = notificationRepository.findById(notification.getId()).orElseThrow();
+        Notification unchangedOther = notificationRepository.findById(otherNotification.getId()).orElseThrow();
+
+        assertThat(otherReceiverUpdated).isZero();
+        assertThat(firstUpdated).isEqualTo(1);
+        assertThat(secondUpdated).isZero();
+        assertThat(firstReadAt).isNotNull();
+        assertThat(readAgain.getReadAt()).isEqualTo(firstReadAt);
+        assertThat(unchangedOther.getReadAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("전체 읽음 처리는 해당 수신자의 미읽음 알림만 갱신한다")
+    void mark_all_notifications_as_read_for_receiver() {
+        // given
+        User receiver = saveUser("receiver@test.com", "수신자");
+        User otherReceiver = saveUser("other@test.com", "다른 수신자");
+        User actor = saveUser("actor@test.com", "행위자");
+        Notification alreadyRead = saveLikeNotification(
+                receiver,
+                actor,
+                savePost(receiver)
+        );
+        Notification unread = saveLikeNotification(
+                receiver,
+                actor,
+                savePost(receiver)
+        );
+        Notification otherNotification = saveLikeNotification(
+                otherReceiver,
+                actor,
+                savePost(otherReceiver)
+        );
+        notificationRepository.flush();
+        entityManager.clear();
+        notificationRepository.markAsRead(receiver.getId(), alreadyRead.getId());
+        var firstReadAt = notificationRepository.findById(alreadyRead.getId())
+                .orElseThrow()
+                .getReadAt();
+
+        // when
+        int updated = notificationRepository.markAllAsRead(receiver.getId());
+
+        // then
+        Notification unchangedRead = notificationRepository.findById(alreadyRead.getId()).orElseThrow();
+        Notification newlyRead = notificationRepository.findById(unread.getId()).orElseThrow();
+        Notification unchangedOther = notificationRepository.findById(otherNotification.getId()).orElseThrow();
+
+        assertThat(updated).isEqualTo(1);
+        assertThat(unchangedRead.getReadAt()).isEqualTo(firstReadAt);
+        assertThat(newlyRead.getReadAt()).isNotNull();
+        assertThat(unchangedOther.getReadAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("미읽음 알림 개수는 해당 수신자의 읽지 않은 알림만 포함한다")
+    void count_unread_notifications_for_receiver() {
+        // given
+        User receiver = saveUser("receiver@test.com", "수신자");
+        User otherReceiver = saveUser("other@test.com", "다른 수신자");
+        User actor = saveUser("actor@test.com", "행위자");
+        Notification read = saveLikeNotification(
+                receiver,
+                actor,
+                savePost(receiver)
+        );
+        saveLikeNotification(receiver, actor, savePost(receiver));
+        saveLikeNotification(otherReceiver, actor, savePost(otherReceiver));
+        notificationRepository.flush();
+        entityManager.clear();
+        notificationRepository.markAsRead(receiver.getId(), read.getId()); // 2개 중 1개의 알림만 읽은 상태
+
+        // when
+        long unreadCount = notificationRepository
+                .countByReceiverIdAndReadAtIsNull(receiver.getId());
+
+        // then
+        assertThat(unreadCount).isEqualTo(1);
+    }
+
 
 
     private User saveUser(String email, String nickname) {
