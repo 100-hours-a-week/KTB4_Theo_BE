@@ -20,6 +20,20 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
 
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: community_api_test
+          MYSQL_ROOT_PASSWORD: test-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -ptest-password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v6
@@ -36,7 +50,10 @@ jobs:
 
       - name: Run tests
         env:
-          JWT_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+          SPRING_PROFILES_ACTIVE: test
+          TEST_DB_URL: jdbc:mysql://127.0.0.1:3306/community_api_test
+          TEST_DB_USERNAME: root
+          TEST_DB_PASSWORD: test-password
         run: ./gradlew test --no-daemon
 
   build-and-deploy:
