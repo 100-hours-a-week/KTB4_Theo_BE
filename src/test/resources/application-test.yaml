@@ -1,0 +1,23 @@
+spring:
+  datasource:
+    url: ${TEST_DB_URL:jdbc:mysql://127.0.0.1:3306/community_api_test}
+    username: ${TEST_DB_USERNAME:root}
+    password: ${TEST_DB_PASSWORD:test-password}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create
+
+  sql:
+    init:
+      mode: never
+
+jwt:
+  secret: ${JWT_SECRET:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+
+logging:
+  level:
+    org.springframework.jdbc.core.JdbcTemplate: INFO
+    org.springframework.jdbc.core.StatementCreatorUtils: INFO

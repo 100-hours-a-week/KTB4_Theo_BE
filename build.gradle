@@ -33,7 +33,6 @@ dependencies {
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.13.0' // JWT 구현체
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.13.0' // JWT JSON 직렬화/역직렬화
 	runtimeOnly 'com.mysql:mysql-connector-j' // 운영 및 로컬 MySQL 연결
-	testRuntimeOnly 'com.h2database:h2' // 테스트에서는 H2 사용
 	testImplementation 'org.springframework.boot:spring-boot-starter-test' // 일반 테스트 코드 작성에 필요
 	testImplementation 'org.springframework.security:spring-security-test' // 보안 필터 활용 테스트 코드 작성에 필요
 	mockitoAgent('org.mockito:mockito-core') {
