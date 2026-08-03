@@ -21,6 +21,7 @@ public class SseEmitterService {
     private static final String NOTIFICATION_EVENT_NAME = "notification";
 
     private final SseEmitterRepository emitterRepository;
+    private final SseMetrics sseMetrics;
 
     // SSE 구독 요청 처리
     public SseEmitter subscribe(Long userId) {
@@ -83,10 +84,12 @@ public class SseEmitterService {
                             .name(CONNECT_EVENT_NAME)
                             .data("connected")
             );
+            sseMetrics.recordConnection();
         } catch (IOException | IllegalStateException exception) {
             // 초기 연결 이벤트 전송 실패 시 해당 emitter 정상적 사용 불가하다고 판단 후 제거 및 오류상태 반환
             deleteEmitter(userId, emitter);
             emitter.completeWithError(exception);
+            sseMetrics.recordConnectionFailure();
 
             log.debug(
                     "SSE 초기 연결 이벤트 전송 실패. userId={}",
@@ -110,11 +113,13 @@ public class SseEmitterService {
                             .name(NOTIFICATION_EVENT_NAME)
                             .data(notification)
             );
+            sseMetrics.recordNotificationSent();
 
             return true;
         } catch (IOException | IllegalStateException exception) {
             // 전송 실패 시 해당 emitter 정상적이지 않다고 간주한 후 제거
             deleteEmitter(userId, emitter);
+            sseMetrics.recordNotificationFailure();
 
             log.debug(
                     "SSE 알림 전송 실패. userId={}, notificationId={}",

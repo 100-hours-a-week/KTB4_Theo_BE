@@ -32,4 +32,8 @@ public class SseEmitterRepository {
     ) {
         return emitters.remove(userId, emitter);
     }
+
+    public int size() {
+        return emitters.size();
+    }
 }

@@ -1,6 +1,7 @@
 package com.theo.community_api.loadtest;
 
 import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,12 @@ public class LoadTestMetricsEndpoint {
                 timerMax(gcPauseTimers),
                 gaugeSum("hikaricp.connections.active"),
                 gaugeSum("hikaricp.connections.pending"),
+                gaugeSum("tomcat.threads.busy"),
+                gaugeSum("sse.emitters.active"),
+                counterCount("sse.connections"),
+                counterCount("sse.connections.failed"),
+                counterCount("sse.notifications.sent"),
+                counterCount("sse.notifications.failed"),
                 timerCount(unreadRequestTimers),
                 timerTotalTime(unreadRequestTimers),
                 timerMax(unreadRequestTimers)
@@ -83,6 +90,14 @@ public class LoadTestMetricsEndpoint {
                 .sum();
     }
 
+    private double counterCount(String meterName) {
+        return meterRegistry.find(meterName)
+                .counters()
+                .stream()
+                .mapToDouble(Counter::count)
+                .sum();
+    }
+
     private double timerTotalTime(Collection<Timer> timers) {
         return timers.stream()
                 .mapToDouble(timer -> timer.totalTime(TimeUnit.SECONDS))
@@ -110,6 +125,12 @@ public class LoadTestMetricsEndpoint {
             double gcPauseMaxSeconds,
             double hikariActiveConnections,
             double hikariPendingConnections,
+            double tomcatBusyThreads,
+            double sseActiveEmitters,
+            double sseConnections,
+            double sseConnectionFailures,
+            double sseNotificationsSent,
+            double sseNotificationFailures,
             long unreadRequestCount,
             double unreadRequestTotalSeconds,
             double unreadRequestMaxSeconds
