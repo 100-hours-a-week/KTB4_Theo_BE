@@ -1,0 +1,78 @@
+{
+    "root_group": {
+        "checks": {
+            "SSE 연결 이벤트가 발생했다": {
+                "passes": 5000,
+                "fails": 0,
+                "name": "SSE 연결 이벤트가 발생했다",
+                "path": "::SSE 연결 이벤트가 발생했다",
+                "id": "b6cf9fcd6c836c6410c84de1b09a88b1"
+            },
+            "SSE 이벤트 이름이 정상이다": {
+                "name": "SSE 이벤트 이름이 정상이다",
+                "path": "::SSE 이벤트 이름이 정상이다",
+                "id": "e76d28f7dce191eeaba496158ede1901",
+                "passes": 5000,
+                "fails": 0
+            }
+        },
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {}
+    },
+    "metrics": {
+        "checks": {
+            "passes": 10000,
+            "fails": 0,
+            "value": 1
+        },
+        "vus_max": {
+            "value": 5000,
+            "min": 5000,
+            "max": 5000
+        },
+        "sse_event": {
+            "rate": 23.256209200876373,
+            "count": 5000
+        },
+        "vus": {
+            "max": 5000,
+            "value": 42,
+            "min": 42
+        },
+        "data_sent": {
+            "count": 2238800,
+            "rate": 10413.200231784405
+        },
+        "sse_connections": {
+            "count": 5000,
+            "rate": 23.256209200876373
+        },
+        "sse_events_received": {
+            "count": 5000,
+            "rate": 23.256209200876373
+        },
+        "data_received": {
+            "count": 2100000,
+            "rate": 9767.607864368078
+        },
+        "checks{scope:sse}": {
+            "passes": 10000,
+            "fails": 0,
+            "thresholds": {
+                "rate>0.99": false
+            },
+            "value": 1
+        },
+        "http_req_sending": {
+            "avg": 4.776537645200006,
+            "min": 1.50375,
+            "med": 3.8231665,
+            "max": 181.270584,
+            "p(90)": 5.884000000000001,
+            "p(95)": 7.909941999999995,
+            "p(99)": 29.640083749999935
+        }
+    }
+}

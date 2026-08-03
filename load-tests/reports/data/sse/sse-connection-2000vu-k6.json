@@ -1,0 +1,78 @@
+{
+    "root_group": {
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "SSE 연결 이벤트가 발생했다": {
+                    "name": "SSE 연결 이벤트가 발생했다",
+                    "path": "::SSE 연결 이벤트가 발생했다",
+                    "id": "b6cf9fcd6c836c6410c84de1b09a88b1",
+                    "passes": 2000,
+                    "fails": 0
+                },
+                "SSE 이벤트 이름이 정상이다": {
+                    "path": "::SSE 이벤트 이름이 정상이다",
+                    "id": "e76d28f7dce191eeaba496158ede1901",
+                    "passes": 2000,
+                    "fails": 0,
+                    "name": "SSE 이벤트 이름이 정상이다"
+                }
+            }
+    },
+    "metrics": {
+        "checks": {
+            "passes": 4000,
+            "fails": 0,
+            "value": 1
+        },
+        "vus_max": {
+            "value": 2000,
+            "min": 2000,
+            "max": 2000
+        },
+        "data_sent": {
+            "count": 894800,
+            "rate": 4161.633085098369
+        },
+        "data_received": {
+            "count": 840000,
+            "rate": 3906.763289542501
+        },
+        "http_req_sending": {
+            "p(99)": 27.988087589999992,
+            "avg": 6.46900679499999,
+            "min": 2.311709,
+            "med": 5.7931665,
+            "max": 109.104417,
+            "p(90)": 8.165128900000001,
+            "p(95)": 9.448684799999999
+        },
+        "sse_connections": {
+            "count": 2000,
+            "rate": 9.301817356053574
+        },
+        "sse_events_received": {
+            "count": 2000,
+            "rate": 9.301817356053574
+        },
+        "sse_event": {
+            "rate": 9.301817356053574,
+            "count": 2000
+        },
+        "vus": {
+            "value": 7,
+            "min": 7,
+            "max": 2000
+        },
+        "checks{scope:sse}": {
+            "passes": 4000,
+            "fails": 0,
+            "thresholds": {
+                "rate>0.99": false
+            },
+            "value": 1
+        }
+    }
+}
