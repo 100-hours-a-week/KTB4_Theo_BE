@@ -94,13 +94,10 @@ public class UserService {
             throw new BusinessException(ErrorCode.UNAUTHORIZED_REQUEST);
         }
 
-        // 현재 닉네임과 동일한 경우
-        if (user.getNickname().equals(request.getNickname())) {
-            throw new BusinessException(ErrorCode.SAME_NICKNAME);
-        }
+        boolean nicknameChanged = !user.getNickname().equals(request.getNickname());
 
-        // 다른 사용자가 이미 사용 중인 닉네임인 경우
-        if (userRepository.existsByNickname(request.getNickname())) {
+        // 닉네임을 변경하는 경우에만 다른 사용자의 닉네임과 중복되는지 확인
+        if (nicknameChanged && userRepository.existsByNickname(request.getNickname())) {
             throw new BusinessException(ErrorCode.NICKNAME_ALREADY_EXIST);
         }
 

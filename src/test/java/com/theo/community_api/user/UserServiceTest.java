@@ -300,8 +300,8 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("현재 닉네임과 같으면 SAME_NICKNAME이 발생한다")
-    void updateUser_fail_when_same_nickname() {
+    @DisplayName("현재 닉네임을 유지하면서 프로필 이미지만 수정한다")
+    void updateUser_success_when_only_profile_image_changes() {
         // given
         Long userId = 1L;
 
@@ -321,14 +321,14 @@ class UserServiceTest {
                 .willReturn(Optional.of(user));
 
         // when
-        BusinessException exception = assertThrows(
-                BusinessException.class,
-                () -> userService.updateUser(userId, request)
-        );
+        UserUpdateResponse response = userService.updateUser(userId, request);
 
         // then
-        assertThat(exception.getErrorCode())
-                .isEqualTo(ErrorCode.SAME_NICKNAME);
+        assertThat(response.getNickname()).isEqualTo("theo");
+        assertThat(response.getProfileImage()).isEqualTo("new-profile.png");
+
+        verify(userRepository, never())
+                .existsByNickname(any());
     }
 
     @Test
