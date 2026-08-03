@@ -6,9 +6,15 @@ scenario_name="${1:-}"
 interval_seconds="${2:-5}"
 duration_seconds="${3:-0}"
 base_url="${4:-http://localhost:8080}"
+result_group="${5:-${scenario_name%%-*}}"
 
 if [[ -z "${scenario_name}" ]]; then
-  echo "사용법: $0 <scenario-name> [interval-seconds] [duration-seconds] [base-url]" >&2
+  echo "사용법: $0 <scenario-name> [interval-seconds] [duration-seconds] [base-url] [result-group]" >&2
+  exit 1
+fi
+
+if [[ -z "${result_group}" || ! "${result_group}" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+  echo "result-group은 영문, 숫자, 하이픈, 밑줄만 사용할 수 있습니다." >&2
   exit 1
 fi
 
@@ -30,13 +36,13 @@ for required_command in curl jq; do
 done
 
 script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-result_directory="${script_directory}/results"
+result_directory="${script_directory}/results/${result_group}"
 result_file="${result_directory}/${scenario_name}-actuator.csv"
 endpoint="${base_url%/}/actuator/loadtest-snapshot"
 
 mkdir -p "${result_directory}"
 
-header="timestamp,process_cpu_usage,jvm_heap_used_bytes,jvm_threads_live,gc_pause_count,gc_pause_total_seconds,gc_pause_max_seconds,hikari_active_connections,hikari_pending_connections,unread_request_count,unread_request_total_seconds,unread_request_max_seconds"
+header="timestamp,process_cpu_usage,jvm_heap_used_bytes,jvm_threads_live,gc_pause_count,gc_pause_total_seconds,gc_pause_max_seconds,hikari_active_connections,hikari_pending_connections,tomcat_busy_threads,sse_active_emitters,sse_connections,sse_connection_failures,sse_notifications_sent,sse_notification_failures,unread_request_count,unread_request_total_seconds,unread_request_max_seconds"
 echo "${header}" > "${result_file}"
 
 started_at="$(date +%s)"
@@ -62,6 +68,12 @@ while true; do
         .gcPauseMaxSeconds,
         .hikariActiveConnections,
         .hikariPendingConnections,
+        .tomcatBusyThreads,
+        .sseActiveEmitters,
+        .sseConnections,
+        .sseConnectionFailures,
+        .sseNotificationsSent,
+        .sseNotificationFailures,
         .unreadRequestCount,
         .unreadRequestTotalSeconds,
         .unreadRequestMaxSeconds

@@ -5,6 +5,7 @@
 - `prepare-users.js`: 부하 테스트용 회원을 미리 생성한다.
 - `unread-count-polling.js`: 각 가상 사용자가 자기 계정으로 로그인한 뒤 미읽음 알림 개수를 주기적으로 조회한다.
 - `unread-count-polling-limit.js`: 사전 발급한 사용자별 JWT를 `SharedArray`로 읽고 로그인 없이 다중 사용자의 폴링 API 처리 한계를 측정한다.
+- `notification-sse.js`: 사전 발급한 사용자별 JWT로 SSE 구독 연결을 생성하고 `connect` 이벤트와 연결 유지 상태를 검증한다.
 - `results/`: 반복 실행하는 k6 결과 파일을 저장한다. Git에는 포함하지 않는다.
 - `../reports/data/`: 최종 분석에 사용한 결과만 선별해 보존한다. Git에 포함한다.
 - `../reports/polling-load-test.md`: 확정 결과와 분석을 기록한다.
@@ -17,6 +18,58 @@
 ```
 
 비밀번호는 파일에 저장하지 않고 `LOAD_TEST_PASSWORD` 환경변수로 전달한다.
+
+반복 실행 결과는 테스트 방식별로 분리한다.
+
+```text
+load-tests/k6/results/polling/
+load-tests/k6/results/sse/
+load-tests/monitoring/results/polling/
+load-tests/monitoring/results/sse/
+```
+
+## SSE 구독 테스트
+
+SSE 테스트는 기본 k6 바이너리에 포함되지 않은 `xk6-sse` 확장을 사용한다. 테스트용 커스텀 바이너리는 저장소에 커밋하지 않고 로컬 임시 경로에 생성한다.
+
+```bash
+go install go.k6.io/xk6/cmd/xk6@latest
+"$(go env GOPATH)/bin/xk6" build \
+  --output /tmp/k6-sse \
+  --with github.com/phymbert/xk6-sse@v0.1.12
+```
+
+SSE 테스트용 JWT를 준비한다. 기존 사용자별 JWT 생성 스크립트를 재사용하며, 하나의 JSON 파일에 사용자별 고유 JWT를 저장한다.
+
+```bash
+node --env-file=.env \
+  load-tests/token/generate-loadtest-tokens.mjs \
+  --count 2000
+```
+
+Actuator 수집을 시작한 뒤 연결 유지 테스트를 실행한다. 비교 테스트의 부하 시간은 Ramp-up 60초, Steady State 120초, Ramp-down 30초로 고정한다.
+
+```bash
+load-tests/monitoring/collect-actuator.sh \
+  sse-connection-2000 \
+  5 \
+  225 \
+  http://localhost:8080 \
+  sse
+```
+
+```bash
+/tmp/k6-sse run \
+  --summary-export=load-tests/k6/results/sse/sse-connection-2000.json \
+  -e TARGET_VUS=2000 \
+  -e TOKEN_FILE=./.tokens/polling-users.json \
+  -e RAMP_UP_SECONDS=60 \
+  -e STEADY_SECONDS=120 \
+  -e RAMP_DOWN_SECONDS=30 \
+  load-tests/k6/notification-sse.js
+```
+
+이 테스트에서는 실제 알림을 생성하지 않고 SSE 연결, `connect` 이벤트, Steady State 활성 Emitter와 서버 자원을 확인한다. 대규모 알림 전달 성공률과 전달 지연은 기존 폴링 테스트와 직접 비교할 수 없으므로 이번 부하 테스트 범위에서 제외한다. 상세 기준은 `../reports/sse-connection-test-plan.md`를 따른다.
 
 ## 1. 사전 준비
 
@@ -35,7 +88,7 @@ export LOAD_TEST_PASSWORD='테스트용 비밀번호'
 결과 디렉터리를 만든다.
 
 ```bash
-mkdir -p load-tests/k6/results
+mkdir -p load-tests/k6/results/polling load-tests/k6/results/sse
 ```
 
 ## 2. 테스트 계정 500개 준비
@@ -77,7 +130,7 @@ k6 run \
 
 ```bash
 k6 run \
-  --summary-export=load-tests/k6/results/smoke-10vu-30s.json \
+  --summary-export=load-tests/k6/results/polling/smoke-10vu-30s.json \
   -e TARGET_VUS=10 \
   -e POLL_INTERVAL_SECONDS=30 \
   -e RAMP_UP_SECONDS=30 \
@@ -120,7 +173,7 @@ load-tests/monitoring/collect-actuator.sh \
 결과는 다음 경로에 저장된다.
 
 ```text
-load-tests/monitoring/results/polling-100vu-30s-actuator.csv
+load-tests/monitoring/results/polling/polling-100vu-30s-actuator.csv
 ```
 
 ### 터미널 3: k6
@@ -129,7 +182,7 @@ load-tests/monitoring/results/polling-100vu-30s-actuator.csv
 
 ```bash
 k6 run \
-  --summary-export="load-tests/k6/results/polling-${TARGET_VUS}vu-${POLL_INTERVAL_SECONDS}s.json" \
+  --summary-export="load-tests/k6/results/polling/polling-${TARGET_VUS}vu-${POLL_INTERVAL_SECONDS}s.json" \
   -e TARGET_VUS="$TARGET_VUS" \
   -e POLL_INTERVAL_SECONDS="$POLL_INTERVAL_SECONDS" \
   -e RAMP_UP_SECONDS=30 \
@@ -349,7 +402,7 @@ k6 실행:
 
 ```bash
 k6 run \
-  --summary-export=load-tests/k6/results/polling-limit-2000vu-5s.json \
+  --summary-export=load-tests/k6/results/polling/polling-limit-2000vu-5s.json \
   -e TARGET_VUS=2000 \
   -e POLL_INTERVAL_SECONDS=5 \
   -e RAMP_UP_SECONDS=60 \
@@ -373,7 +426,7 @@ k6 실행:
 
 ```bash
 k6 run \
-  --summary-export=load-tests/k6/results/polling-limit-5000vu-5s.json \
+  --summary-export=load-tests/k6/results/polling/polling-limit-5000vu-5s.json \
   -e TARGET_VUS=5000 \
   -e POLL_INTERVAL_SECONDS=5 \
   -e RAMP_UP_SECONDS=60 \
@@ -397,7 +450,7 @@ k6 실행:
 
 ```bash
 k6 run \
-  --summary-export=load-tests/k6/results/polling-limit-6250vu-5s.json \
+  --summary-export=load-tests/k6/results/polling/polling-limit-6250vu-5s.json \
   -e TARGET_VUS=6250 \
   -e POLL_INTERVAL_SECONDS=5 \
   -e RAMP_UP_SECONDS=60 \
@@ -421,7 +474,7 @@ k6 실행:
 
 ```bash
 k6 run \
-  --summary-export=load-tests/k6/results/polling-limit-7500vu-5s.json \
+  --summary-export=load-tests/k6/results/polling/polling-limit-7500vu-5s.json \
   -e TARGET_VUS=7500 \
   -e POLL_INTERVAL_SECONDS=5 \
   -e RAMP_UP_SECONDS=60 \
@@ -445,7 +498,7 @@ k6 실행:
 
 ```bash
 k6 run \
-  --summary-export=load-tests/k6/results/polling-limit-10000vu-5s.json \
+  --summary-export=load-tests/k6/results/polling/polling-limit-10000vu-5s.json \
   -e TARGET_VUS=10000 \
   -e POLL_INTERVAL_SECONDS=5 \
   -e RAMP_UP_SECONDS=60 \
