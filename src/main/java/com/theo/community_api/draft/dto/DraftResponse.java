@@ -13,15 +13,15 @@ public class DraftResponse {
     private Long draftId;
     private String title;
     private String content;
-    private List<DraftImageResponse> imageUrls;
+    private List<DraftImageResponse> images;
     private LocalDateTime updatedAt;
 
-    public static DraftResponse from(Draft draft, List<DraftImageResponse> imageUrls){
+    public static DraftResponse from(Draft draft, List<DraftImageResponse> images){
         return new DraftResponse(
                 draft.getId(),
                 draft.getTitle(),
                 draft.getContent(),
-                imageUrls,
+                images,
                 draft.getUpdatedAt()
         );
     }

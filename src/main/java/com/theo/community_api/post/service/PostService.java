@@ -204,12 +204,12 @@ public class PostService {
         // 이미지 처리
         List<PostImage> postImages = postImageRepository.findAllByPost_IdOrderByImageOrderAsc(postId);
 
-        List<String> imageUrls = new ArrayList<>();
+        List<PostImageResponse> imageResponses = new ArrayList<>();
 
         for (PostImage postImage : postImages) {
             String imageUrl = imageUrlResolver.resolve(postImage.getImageKey());
 
-            imageUrls.add(imageUrl);
+            imageResponses.add(PostImageResponse.from(postImage, imageUrl));
         }
 
         boolean liked = postLikeRepository.existsByPostIdAndUserId(postId, loginUserId);
@@ -222,7 +222,7 @@ public class PostService {
                 loginUserId,
                 liked,
                 authorProfileImageUrl,
-                imageUrls,
+                imageResponses,
                 commentResponses
         );
     }

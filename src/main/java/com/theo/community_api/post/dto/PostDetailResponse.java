@@ -26,7 +26,7 @@ public class PostDetailResponse { // 게시물 상세조회
     private boolean isBlinded;
     private boolean isAuthor;
 
-    private List<String> imageUrls;
+    private List<PostImageResponse> images;
     private List<PostCommentResponse> comments;
 
 
@@ -36,7 +36,7 @@ public class PostDetailResponse { // 게시물 상세조회
             , Long loginUserId
             , boolean liked
             , String profileImageUrl
-            , List<String> imageUrls
+            , List<PostImageResponse> images
             , List<PostCommentResponse> comments) {
         String nickname = "알 수 없음";
         String responseProfileImageUrl = null;
@@ -68,7 +68,7 @@ public class PostDetailResponse { // 게시물 상세조회
                 isAuthorDeleted,
                 post.isBlinded(),
                 isAuthor,
-                imageUrls,
+                images,
                 comments
         );
     }
