@@ -11,6 +11,9 @@ import java.util.List;
 public interface DraftImageRepository extends JpaRepository<DraftImage, Long> {
     List<DraftImage> findAllByDraftIdOrderByImageOrderAsc(Long draftId);
 
+    @Query("select di.imageKey from DraftImage di")
+    List<String> findAllImageKeys();
+
     void deleteAllByDraftId(Long draftId);
 
     @Modifying(flushAutomatically = true)
