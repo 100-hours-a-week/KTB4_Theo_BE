@@ -13,6 +13,7 @@ public enum ErrorCode { // 비즈니스 예외 모음
     EMPTY_DRAFT_CONTENT(HttpStatus.BAD_REQUEST, "empty_draft_content"),
     DRAFT_PUBLISH_REQUIRED_TITLE_AND_CONTENT(HttpStatus.BAD_REQUEST, "draft_public_required_title_and_content"),
     INVALID_IMAGE_KEY(HttpStatus.BAD_REQUEST, "invalid_image_key"),
+    INVALID_IMAGE_ID(HttpStatus.BAD_REQUEST, "invalid_image_id"),
     EMPTY_IMAGE_FILE(HttpStatus.BAD_REQUEST, "empty_image_file"),
     INVALID_IMAGE_TYPE(HttpStatus.BAD_REQUEST, "invalid_image_type"),
 

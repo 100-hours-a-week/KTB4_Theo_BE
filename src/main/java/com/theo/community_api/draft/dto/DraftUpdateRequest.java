@@ -10,5 +10,5 @@ import java.util.List;
 public class DraftUpdateRequest {
     private String title;
     private String content;
-    private List<String> retainedImageKeys;
+    private List<Long> retainedImageIds;
 }

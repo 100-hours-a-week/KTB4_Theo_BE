@@ -13,7 +13,6 @@ import com.theo.community_api.draft.repository.DraftRepository;
 import com.theo.community_api.image.domain.ImageCategory;
 import com.theo.community_api.image.service.ImageService;
 import com.theo.community_api.image.url.ImageUrlResolver;
-import com.theo.community_api.image.validation.ImageKeyValidator;
 import com.theo.community_api.post.domain.Post;
 import com.theo.community_api.post.domain.PostImage;
 import com.theo.community_api.post.repository.PostImageRepository;
@@ -26,8 +25,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -41,7 +42,6 @@ public class DraftService {
     private final DraftImageRepository draftImageRepository;
     private final PostImageRepository postImageRepository;
     private final ImageUrlResolver imageUrlResolver;
-    private final ImageKeyValidator imageKeyValidator;
     private final ImageService imageService;
 
     // 임시글 생성
@@ -117,7 +117,7 @@ public class DraftService {
         if (isEmptyDraft(
                 request.getTitle(),
                 request.getContent(),
-                request.getRetainedImageKeys(),
+                request.getRetainedImageIds(),
                 newImages
         )) {
             throw new BusinessException(ErrorCode.EMPTY_DRAFT_CONTENT);
@@ -129,19 +129,17 @@ public class DraftService {
         List<DraftImage> existingImages =
                 draftImageRepository.findAllByDraftIdOrderByImageOrderAsc(draft.getId());
 
-        List<String> existingImageKeys = existingImages.stream()
-                .map(DraftImage::getImageKey)
+        List<Long> retainedImageIds = normalizeRetainedImageIds(
+                request.getRetainedImageIds()
+        );
+        List<DraftImage> retainedImages = findRetainedDraftImages(
+                existingImages,
+                retainedImageIds
+        );
+        Set<Long> retainedIdSet = new HashSet<>(retainedImageIds);
+        List<DraftImage> removedImages = existingImages.stream()
+                .filter(image -> !retainedIdSet.contains(image.getId()))
                 .toList();
-
-        List<String> retainedImageKeys = validateDraftImageKeys(
-                request.getRetainedImageKeys(),
-                loginUserId
-        );
-
-        validateRetainedImageKeys(
-                existingImageKeys,
-                retainedImageKeys
-        );
 
         List<String> uploadedImageKeys = uploadDraftImages(
                 loginUserId,
@@ -150,19 +148,19 @@ public class DraftService {
 
         imageService.deleteOnRollback(uploadedImageKeys);
 
-        List<String> finalImageKeys = new ArrayList<>(retainedImageKeys);
-        finalImageKeys.addAll(uploadedImageKeys);
-
-        List<String> removedImageKeys = findRemovedImageKeys(
-                existingImageKeys,
-                retainedImageKeys
-        );
+        List<String> removedImageKeys = removedImages.stream()
+                .map(DraftImage::getImageKey)
+                .toList();
 
         draft.update(request.getTitle(), request.getContent());
 
-        // DB 이미지 관계는 요청 순서대로 다시 저장하되, 유지된 S3 객체는 삭제하지 않는다.
-        draftImageRepository.deleteAllByDraftIdInBulk(draft.getId());
-        saveDraftImages(draft, finalImageKeys);
+        int imageOrder = 1;
+        for (DraftImage retainedImage : retainedImages) {
+            retainedImage.updateOrder(imageOrder++);
+        }
+
+        draftImageRepository.deleteAll(removedImages);
+        saveDraftImages(draft, uploadedImageKeys, imageOrder);
         imageService.deleteAfterCommit(removedImageKeys);
 
         return toDraftResponse(draft);
@@ -228,6 +226,10 @@ public class DraftService {
     }
 
     private void saveDraftImages(Draft draft, List<String> imageKeys) {
+        saveDraftImages(draft, imageKeys, 1);
+    }
+
+    private void saveDraftImages(Draft draft, List<String> imageKeys, int startOrder) {
         if (imageKeys == null || imageKeys.isEmpty()) {
             return;
         }
@@ -244,28 +246,13 @@ public class DraftService {
             DraftImage draftImage = new DraftImage(
                     draft,
                     imageKey,
-                    i + 1
+                    startOrder + i
             );
 
             draftImages.add(draftImage);
         }
 
         draftImageRepository.saveAll(draftImages);
-    }
-
-    private List<String> validateDraftImageKeys(
-            List<String> imageKeys,
-            Long userId
-    ) {
-        imageKeyValidator.validateAllForUser(
-                imageKeys,
-                ImageCategory.POST,
-                userId
-        );
-
-        return imageKeys == null
-                ? List.of()
-                : List.copyOf(imageKeys);
     }
 
     private List<String> uploadDraftImages(
@@ -283,24 +270,40 @@ public class DraftService {
         );
     }
 
-    private List<String> findRemovedImageKeys(
-            List<String> existingImageKeys,
-            List<String> newImageKeys
-    ) {
-        Set<String> retainedKeys = new HashSet<>(newImageKeys);
+    private List<Long> normalizeRetainedImageIds(List<Long> imageIds) {
+        if (imageIds == null) {
+            return List.of();
+        }
 
-        return existingImageKeys.stream()
-                .filter(imageKey -> !retainedKeys.contains(imageKey))
-                .toList();
+        Set<Long> uniqueIds = new HashSet<>();
+        for (Long imageId : imageIds) {
+            if (imageId == null || !uniqueIds.add(imageId)) {
+                throw new BusinessException(ErrorCode.INVALID_IMAGE_ID);
+            }
+        }
+
+        return List.copyOf(imageIds);
     }
 
-    private void validateRetainedImageKeys(
-            List<String> existingImageKeys,
-            List<String> retainedImageKeys
+    private List<DraftImage> findRetainedDraftImages(
+            List<DraftImage> existingImages,
+            List<Long> retainedImageIds
     ) {
-        if (!existingImageKeys.containsAll(retainedImageKeys)) {
-            throw new BusinessException(ErrorCode.INVALID_IMAGE_KEY);
+        Map<Long, DraftImage> existingImagesById = new HashMap<>();
+        for (DraftImage existingImage : existingImages) {
+            existingImagesById.put(existingImage.getId(), existingImage);
         }
+
+        List<DraftImage> retainedImages = new ArrayList<>();
+        for (Long retainedImageId : retainedImageIds) {
+            DraftImage retainedImage = existingImagesById.get(retainedImageId);
+            if (retainedImage == null) {
+                throw new BusinessException(ErrorCode.INVALID_IMAGE_ID);
+            }
+            retainedImages.add(retainedImage);
+        }
+
+        return retainedImages;
     }
 
     private DraftResponse toDraftResponse(Draft draft) {
@@ -325,22 +328,22 @@ public class DraftService {
     private boolean isEmptyDraft(
             String title,
             String content,
-            List<String> retainedImageKeys,
+            List<Long> retainedImageIds,
             List<MultipartFile> newImages
     ) {
         return isBlank(title)
                 && isBlank(content)
-                && isEmptyImages(retainedImageKeys)
+                && isEmptyImageIds(retainedImageIds)
                 && (newImages == null || newImages.isEmpty());
     }
 
-    private boolean isEmptyImages(List<String> imageKeys) {
-        if (imageKeys == null || imageKeys.isEmpty()) {
+    private boolean isEmptyImageIds(List<Long> imageIds) {
+        if (imageIds == null || imageIds.isEmpty()) {
             return true;
         }
 
-        for (String imageKey : imageKeys) {
-            if (!isBlank(imageKey)) {
+        for (Long imageId : imageIds) {
+            if (imageId != null) {
                 return false;
             }
         }

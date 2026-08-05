@@ -18,5 +18,5 @@ public class PostUpdateRequest {
     @NotBlank(message = "blank_content")
     private String content;
 
-    private List<String> retainedImageKeys;
+    private List<Long> retainedImageIds;
 }

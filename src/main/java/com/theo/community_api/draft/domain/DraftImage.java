@@ -31,4 +31,8 @@ public class DraftImage {
         this.imageKey = imageKey;
         this.imageOrder = imageOrder;
     }
+
+    public void updateOrder(Integer imageOrder) {
+        this.imageOrder = imageOrder;
+    }
 }

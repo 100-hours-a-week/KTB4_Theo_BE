@@ -6,7 +6,6 @@ import com.theo.community_api.common.exception.*;
 import com.theo.community_api.image.domain.ImageCategory;
 import com.theo.community_api.image.service.ImageService;
 import com.theo.community_api.image.url.ImageUrlResolver;
-import com.theo.community_api.image.validation.ImageKeyValidator;
 import com.theo.community_api.notification.service.NotificationService;
 import com.theo.community_api.post.domain.*;
 import com.theo.community_api.post.dto.*;
@@ -38,7 +37,6 @@ public class PostService {
     private final PostRevisionRepository postRevisionRepository;
     private final NotificationService notificationService;
     private final ImageUrlResolver imageUrlResolver;
-    private final ImageKeyValidator imageKeyValidator;
     private final ImageService imageService;
 
     // 게시글 추가
@@ -245,19 +243,17 @@ public class PostService {
         List<PostImage> existingImages =
                 postImageRepository.findAllByPost_IdOrderByImageOrderAsc(postId);
 
-        List<String> existingImageKeys = existingImages.stream()
-                .map(PostImage::getImageKey)
+        List<Long> retainedImageIds = normalizeRetainedImageIds(
+                request.getRetainedImageIds()
+        );
+        List<PostImage> retainedImages = findRetainedPostImages(
+                existingImages,
+                retainedImageIds
+        );
+        Set<Long> retainedIdSet = new HashSet<>(retainedImageIds);
+        List<PostImage> removedImages = existingImages.stream()
+                .filter(image -> !retainedIdSet.contains(image.getId()))
                 .toList();
-
-        List<String> retainedImageKeys = validatePostImageKeys(
-                request.getRetainedImageKeys(),
-                loginUserId
-        );
-
-        validateRetainedImageKeys(
-                existingImageKeys,
-                retainedImageKeys
-        );
 
         List<String> uploadedImageKeys = uploadPostImages(
                 loginUserId,
@@ -266,13 +262,9 @@ public class PostService {
 
         imageService.deleteOnRollback(uploadedImageKeys);
 
-        List<String> finalImageKeys = new ArrayList<>(retainedImageKeys);
-        finalImageKeys.addAll(uploadedImageKeys);
-
-        List<String> removedImageKeys = findRemovedImageKeys(
-                existingImageKeys,
-                retainedImageKeys
-        );
+        List<String> removedImageKeys = removedImages.stream()
+                .map(PostImage::getImageKey)
+                .toList();
 
         // 게시글 수정 전 기존 제목/내용을 수정이력으로 저장
         PostRevision postRevision = PostRevision.from(post);
@@ -281,9 +273,13 @@ public class PostService {
         // 게시글 현재 내용 수정
         post.update(request.getTitle(), request.getContent());
 
-        // DB 이미지 관계는 요청 순서대로 다시 저장하되, 유지된 S3 객체는 삭제하지 않는다.
-        postImageRepository.deleteAllByPostIdInBulk(postId);
-        savePostImages(post, finalImageKeys);
+        int imageOrder = 1;
+        for (PostImage retainedImage : retainedImages) {
+            retainedImage.updateOrder(imageOrder++);
+        }
+
+        postImageRepository.deleteAll(removedImages);
+        savePostImages(post, uploadedImageKeys, imageOrder);
         imageService.deleteAfterCommit(removedImageKeys);
 
         return new PostUpdateResponse(post.isEdited());
@@ -312,13 +308,17 @@ public class PostService {
     }
 
     private void savePostImages(Post post, List<String> imageKeys) {
+        savePostImages(post, imageKeys, 1);
+    }
+
+    private void savePostImages(Post post, List<String> imageKeys, int startOrder) {
         if (imageKeys == null || imageKeys.isEmpty()) {
             return;
         }
 
         List<PostImage> postImages = new ArrayList<>();
 
-        int imageOrder = 1;
+        int imageOrder = startOrder;
 
         for (String imageKey : imageKeys) {
             PostImage postImage = new PostImage(post, imageKey, imageOrder);
@@ -329,39 +329,40 @@ public class PostService {
         postImageRepository.saveAll(postImages);
     }
 
-    private List<String> validatePostImageKeys(
-            List<String> imageKeys,
-            Long userId
-    ) {
-        imageKeyValidator.validateAllForUser(
-                imageKeys,
-                ImageCategory.POST,
-                userId
-        );
-
-        return imageKeys == null
-                ? List.of()
-                : List.copyOf(imageKeys);
-    }
-
-    private List<String> findRemovedImageKeys(
-            List<String> existingImageKeys,
-            List<String> newImageKeys
-    ) {
-        Set<String> retainedKeys = new HashSet<>(newImageKeys);
-
-        return existingImageKeys.stream()
-                .filter(imageKey -> !retainedKeys.contains(imageKey))
-                .toList();
-    }
-
-    private void validateRetainedImageKeys(
-            List<String> existingImageKeys,
-            List<String> retainedImageKeys
-    ) {
-        if (!existingImageKeys.containsAll(retainedImageKeys)) {
-            throw new BusinessException(ErrorCode.INVALID_IMAGE_KEY);
+    private List<Long> normalizeRetainedImageIds(List<Long> imageIds) {
+        if (imageIds == null) {
+            return List.of();
         }
+
+        Set<Long> uniqueIds = new HashSet<>();
+        for (Long imageId : imageIds) {
+            if (imageId == null || !uniqueIds.add(imageId)) {
+                throw new BusinessException(ErrorCode.INVALID_IMAGE_ID);
+            }
+        }
+
+        return List.copyOf(imageIds);
+    }
+
+    private List<PostImage> findRetainedPostImages(
+            List<PostImage> existingImages,
+            List<Long> retainedImageIds
+    ) {
+        Map<Long, PostImage> existingImagesById = new HashMap<>();
+        for (PostImage existingImage : existingImages) {
+            existingImagesById.put(existingImage.getId(), existingImage);
+        }
+
+        List<PostImage> retainedImages = new ArrayList<>();
+        for (Long retainedImageId : retainedImageIds) {
+            PostImage retainedImage = existingImagesById.get(retainedImageId);
+            if (retainedImage == null) {
+                throw new BusinessException(ErrorCode.INVALID_IMAGE_ID);
+            }
+            retainedImages.add(retainedImage);
+        }
+
+        return retainedImages;
     }
 
     // 게시글 좋아요 토글
