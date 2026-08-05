@@ -14,7 +14,7 @@ public class PostDetailResponse { // 게시물 상세조회
     private String title;
     private String content;
     private String nickname;
-    private String profileImage;
+    private String profileImageUrl;
 
     private int likeCount;
     private boolean liked;
@@ -35,15 +35,16 @@ public class PostDetailResponse { // 게시물 상세조회
             , User user
             , Long loginUserId
             , boolean liked
+            , String profileImageUrl
             , List<String> imageUrls
             , List<PostCommentResponse> comments) {
         String nickname = "알 수 없음";
-        String profileImage = null;
+        String responseProfileImageUrl = null;
         boolean isAuthorDeleted = true;
 
         if(user != null && !user.isDeleted()){
             nickname = user.getNickname();
-            profileImage = user.getProfileImage();
+            responseProfileImageUrl = profileImageUrl;
             isAuthorDeleted = false;
         }
 
@@ -58,7 +59,7 @@ public class PostDetailResponse { // 게시물 상세조회
                 post.getTitle(),
                 post.getContent(),
                 nickname,
-                profileImage,
+                responseProfileImageUrl,
                 post.getLikeCount(),
                 liked,
                 post.getCommentCount(),

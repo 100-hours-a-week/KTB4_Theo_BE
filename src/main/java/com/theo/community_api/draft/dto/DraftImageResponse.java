@@ -11,10 +11,13 @@ public class DraftImageResponse {
     private String imageUrl;
     private Integer imageOrder;
 
-    public static DraftImageResponse from(DraftImage draftImage){
+    public static DraftImageResponse from(
+            DraftImage draftImage,
+            String imageUrl
+    ){
         return new DraftImageResponse(
                 draftImage.getId(),
-                draftImage.getImageUrl(),
+                imageUrl,
                 draftImage.getImageOrder()
         );
     }

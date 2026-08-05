@@ -20,15 +20,15 @@ public class DraftImage {
     @JoinColumn(name = "draftId", nullable = false)
     private Draft draft;
 
-    @Column(nullable = false)
-    private String imageUrl;
+    @Column(name = "image_key", nullable = false, length = 500)
+    private String imageKey;
 
     @Column(nullable = false)
     private Integer imageOrder;
 
-    public DraftImage(Draft draft, String imageUrl, Integer imageOrder){
+    public DraftImage(Draft draft, String imageKey, Integer imageOrder){
         this.draft = draft;
-        this.imageUrl = imageUrl;
+        this.imageKey = imageKey;
         this.imageOrder = imageOrder;
     }
 }

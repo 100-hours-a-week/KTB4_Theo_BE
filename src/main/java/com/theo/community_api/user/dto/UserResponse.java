@@ -9,13 +9,13 @@ import lombok.Getter;
 public class UserResponse {
     private String email;
     private String nickname;
-    private String profileImage;
+    private String profileImageUrl;
 
-    public static UserResponse from(User user) {
+    public static UserResponse from(User user, String profileImageUrl) {
         return new UserResponse(
                 user.getEmail(),
                 user.getNickname(),
-                user.getProfileImage()
+                profileImageUrl
         );
     }
 }

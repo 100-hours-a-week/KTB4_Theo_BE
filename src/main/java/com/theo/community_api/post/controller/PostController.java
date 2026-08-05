@@ -8,9 +8,13 @@ import com.theo.community_api.post.service.PostService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/posts")
@@ -20,12 +24,18 @@ public class PostController {
     private final PostReportService postReportService;
 
     // 게시글 등록
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<Long>> createPost(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @Valid @RequestBody PostCreateRequest request
+            @Valid @RequestPart("request") PostCreateRequest request,
+            @RequestPart(value = "images", required = false)
+            List<MultipartFile> images
     ) {
-        Long postId = postService.createPost(userDetails.getUserId(), request);
+        Long postId = postService.createPost(
+                userDetails.getUserId(),
+                request,
+                images
+        );
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -55,13 +65,23 @@ public class PostController {
     }
 
     // 게시글 수정
-    @PatchMapping("/{postId}")
+    @PatchMapping(
+            value = "/{postId}",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
     public ResponseEntity<ApiResponse<PostUpdateResponse>> updatePost(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long postId,
-            @Valid @RequestBody PostUpdateRequest request
+            @Valid @RequestPart("request") PostUpdateRequest request,
+            @RequestPart(value = "newImages", required = false)
+            List<MultipartFile> newImages
     ) {
-        PostUpdateResponse response = postService.updatePost(userDetails.getUserId(), postId, request);
+        PostUpdateResponse response = postService.updatePost(
+                userDetails.getUserId(),
+                postId,
+                request,
+                newImages
+        );
 
         return ResponseEntity
                 .ok(ApiResponse.of("post_update_success", response));

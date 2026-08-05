@@ -7,5 +7,5 @@ import lombok.Getter;
 @AllArgsConstructor
 public class UserUpdateResponse {
     private String nickname;
-    private String profileImage;
+    private String profileImageUrl;
 }

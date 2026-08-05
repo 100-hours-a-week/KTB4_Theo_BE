@@ -2,6 +2,7 @@ package com.theo.community_api.post;
 
 import com.theo.community_api.common.exception.BusinessException;
 import com.theo.community_api.common.exception.ErrorCode;
+import com.theo.community_api.image.url.ImageUrlResolver;
 import com.theo.community_api.notification.service.NotificationService;
 import com.theo.community_api.post.domain.Post;
 import com.theo.community_api.post.domain.PostLike;
@@ -42,6 +43,9 @@ class PostServiceTest {
     @Mock
     NotificationService notificationService;
 
+    @Mock
+    ImageUrlResolver imageUrlResolver;
+
     @InjectMocks
     PostService postService;
 
@@ -58,7 +62,7 @@ class PostServiceTest {
         // when
         BusinessException exception = assertThrows(
                 BusinessException.class,
-                () -> postService.updatePost(2L, 1L, null)
+                () -> postService.updatePost(2L, 1L, null, null)
         );
 
         // then

@@ -3,6 +3,7 @@ package com.theo.community_api.notification.service;
 import com.theo.community_api.comment.domain.Comment;
 import com.theo.community_api.common.exception.BusinessException;
 import com.theo.community_api.common.exception.ErrorCode;
+import com.theo.community_api.image.url.ImageUrlResolver;
 import com.theo.community_api.notification.domain.Notification;
 import com.theo.community_api.notification.domain.NotificationSourceType;
 import com.theo.community_api.notification.domain.NotificationType;
@@ -31,6 +32,7 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final ImageUrlResolver imageUrlResolver;
 
     @Transactional
     public void createLikeNotification(Post post, User actor) {
@@ -120,7 +122,7 @@ public class NotificationService {
 
         for (int index = 0; index < contentSize; index++) {
             Notification notification = notifications.get(index);
-            responses.add(NotificationResponse.from(notification));
+            responses.add(toNotificationResponse(notification));
         }
 
         Long nextCursor = hasNext
@@ -196,8 +198,25 @@ public class NotificationService {
         eventPublisher.publishEvent(
                 new NotificationCreatedEvent(
                         notification.getReceiver().getId(),
-                        NotificationResponse.from(notification)
+                        toNotificationResponse(notification)
                 )
+        );
+    }
+
+    private NotificationResponse toNotificationResponse(
+            Notification notification
+    ) {
+        User actor = notification.getActor();
+
+        String actorProfileImageUrl = actor.isDeleted()
+                ? null
+                : imageUrlResolver.resolve(
+                        actor.getProfileImageKey()
+                );
+
+        return NotificationResponse.from(
+                notification,
+                actorProfileImageUrl
         );
     }
 }

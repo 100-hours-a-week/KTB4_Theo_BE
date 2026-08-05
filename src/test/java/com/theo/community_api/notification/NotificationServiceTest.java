@@ -3,6 +3,7 @@ package com.theo.community_api.notification;
 import com.theo.community_api.comment.domain.Comment;
 import com.theo.community_api.common.exception.BusinessException;
 import com.theo.community_api.common.exception.ErrorCode;
+import com.theo.community_api.image.url.ImageUrlResolver;
 import com.theo.community_api.notification.domain.Notification;
 import com.theo.community_api.notification.domain.NotificationSourceType;
 import com.theo.community_api.notification.domain.NotificationType;
@@ -36,6 +37,8 @@ public class NotificationServiceTest {
     private NotificationRepository notificationRepository;
     @Mock
     private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private ImageUrlResolver imageUrlResolver;
 
     private NotificationService notificationService;
 
@@ -46,7 +49,11 @@ public class NotificationServiceTest {
 
     @BeforeEach
     void setUp() { // 게시글 작성자, 게시글, 행위자 설정
-        notificationService = new NotificationService(notificationRepository, eventPublisher);
+        notificationService = new NotificationService(
+                notificationRepository,
+                eventPublisher,
+                imageUrlResolver
+        );
 
         postAuthor = new User(
                 "author@test.com",

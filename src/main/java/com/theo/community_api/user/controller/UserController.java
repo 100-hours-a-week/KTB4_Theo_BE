@@ -7,9 +7,11 @@ import com.theo.community_api.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/users")
@@ -29,11 +31,15 @@ public class UserController {
     }
 
     // 회원가입
-    @PostMapping("/signup")
+    @PostMapping(
+            value = "/signup",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
     public ResponseEntity<ApiResponse<Long>> signup(
-            @Valid @RequestBody SignupRequest request
+            @Valid @RequestPart("request") SignupRequest request,
+            @RequestPart("profileImage") MultipartFile profileImage
     ) {
-        Long userId = userService.signup(request);
+        Long userId = userService.signup(request, profileImage);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -41,12 +47,21 @@ public class UserController {
     }
 
     // 회원정보 수정
-    @PatchMapping("/me")
+    @PatchMapping(
+            value = "/me",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
     public ResponseEntity<ApiResponse<UserUpdateResponse>> updateUser(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @Valid @RequestBody UserUpdateRequest request
+            @Valid @RequestPart("request") UserUpdateRequest request,
+            @RequestPart(value = "profileImage", required = false)
+            MultipartFile profileImage
     ) {
-        UserUpdateResponse response = userService.updateUser(userDetails.getUserId(), request);
+        UserUpdateResponse response = userService.updateUser(
+                userDetails.getUserId(),
+                request,
+                profileImage
+        );
 
         return ResponseEntity
                 .ok(ApiResponse.of("user_update_success", response));

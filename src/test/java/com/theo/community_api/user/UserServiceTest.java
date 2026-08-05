@@ -4,6 +4,9 @@ import com.theo.community_api.auth.dto.IssuedTokens;
 import com.theo.community_api.auth.service.AuthService;
 import com.theo.community_api.common.exception.BusinessException;
 import com.theo.community_api.common.exception.ErrorCode;
+import com.theo.community_api.image.domain.ImageCategory;
+import com.theo.community_api.image.service.ImageService;
+import com.theo.community_api.image.url.ImageUrlResolver;
 import com.theo.community_api.user.domain.User;
 import com.theo.community_api.user.dto.*;
 import com.theo.community_api.user.repository.UserRepository;
@@ -17,8 +20,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Optional;
+import java.util.List;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -38,6 +43,15 @@ class UserServiceTest {
     @Mock
     private AuthService authService;
 
+    @Mock
+    private ImageUrlResolver imageUrlResolver;
+
+    @Mock
+    private ImageService imageService;
+
+    @Mock
+    private MultipartFile profileImageFile;
+
     @InjectMocks
     private UserService userService;
 
@@ -49,14 +63,13 @@ class UserServiceTest {
                 "theo1234@gmail.com",
                 "Password123!",
                 "Password123!",
-                "theo",
-                null
+                "theo"
         );
 
         given(passwordEncoder.encode("Password123!"))
                 .willReturn("encodedPassword");
 
-        given(userRepository.save(any(User.class)))
+        given(userRepository.saveAndFlush(any(User.class)))
                 .willAnswer(invocation -> {
                     User user = invocation.getArgument(0);
                     // user 객체의 id 필드에 1L 값을 저장하라.
@@ -64,15 +77,21 @@ class UserServiceTest {
                     return user;
                 });
 
+        given(imageService.upload(
+                1L,
+                ImageCategory.PROFILE,
+                List.of(profileImageFile)
+        )).willReturn(List.of("local/profiles/1/profile.png"));
+
         // when
-        Long result = userService.signup(request);
+        Long result = userService.signup(request, profileImageFile);
 
         // then
         assertThat(result).isEqualTo(1L);
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
 
-        verify(userRepository).save(userCaptor.capture());
+        verify(userRepository).saveAndFlush(userCaptor.capture());
         // userRepository.save() 가 호출됐을 때 전달된 User 객체를 가져오기
         User savedUser = userCaptor.getValue();
 
@@ -89,14 +108,13 @@ class UserServiceTest {
                 "theo1234@gmail.com",
                 "Password123!",
                 "Different123!",
-                "theo",
-                null
+                "theo"
         );
 
         // when : 회원가입 시도
         BusinessException exception = assertThrows(
                 BusinessException.class,
-                () -> userService.signup(request) // when
+                () -> userService.signup(request, profileImageFile) // when
         );
 
         // then : 비밀번호 불일치 에러 발생 및 검증
@@ -117,8 +135,7 @@ class UserServiceTest {
                 "duplicate@gmail.com",
                 "Password123!",
                 "Password123!",
-                "theo",
-                null
+                "theo"
         );
 
         when(userRepository.existsByEmail(request.getEmail()))
@@ -126,7 +143,7 @@ class UserServiceTest {
 
         BusinessException exception = assertThrows(
                 BusinessException.class,
-                () -> userService.signup(request)
+                () -> userService.signup(request, profileImageFile)
         );
 
         assertThat(exception.getErrorCode())
@@ -146,8 +163,7 @@ class UserServiceTest {
                 "theo1234@gmail.com",
                 "Password123!",
                 "Password123!",
-                "duplicateNickname",
-                null
+                "duplicateNickname"
         );
 
         given(userRepository.existsByEmail(request.getEmail()))
@@ -159,7 +175,7 @@ class UserServiceTest {
         // when
         BusinessException exception = assertThrows(
                 BusinessException.class,
-                () -> userService.signup(request)
+                () -> userService.signup(request, profileImageFile)
         );
 
         // then
@@ -180,8 +196,7 @@ class UserServiceTest {
                 "theo1234@gmail.com",
                 "Password123!",
                 "Password123!",
-                "theo",
-                null
+                "theo"
         );
 
         String encodedPassword = "encoded-password";
@@ -189,11 +204,21 @@ class UserServiceTest {
         given(passwordEncoder.encode(request.getPassword()))
                 .willReturn(encodedPassword);
 
-        given(userRepository.save(any(User.class)))
-                .willAnswer(invocation -> invocation.getArgument(0));
+        given(userRepository.saveAndFlush(any(User.class)))
+                .willAnswer(invocation -> {
+                    User user = invocation.getArgument(0);
+                    ReflectionTestUtils.setField(user, "id", 1L);
+                    return user;
+                });
+
+        given(imageService.upload(
+                1L,
+                ImageCategory.PROFILE,
+                List.of(profileImageFile)
+        )).willReturn(List.of("local/profiles/1/profile.png"));
 
         // when
-        userService.signup(request);
+        userService.signup(request, profileImageFile);
 
         // then
         verify(passwordEncoder).encode(request.getPassword());
@@ -201,7 +226,7 @@ class UserServiceTest {
         ArgumentCaptor<User> userCaptor =
                 ArgumentCaptor.forClass(User.class);
 
-        verify(userRepository).save(userCaptor.capture());
+        verify(userRepository).saveAndFlush(userCaptor.capture());
 
         User savedUser = userCaptor.getValue();
 
@@ -215,15 +240,25 @@ class UserServiceTest {
         // given
         Long userId = 1L;
 
+        String profileImageKey =
+                "local/profiles/1/profile.png";
+
+        String profileImageUrl =
+                "https://test.cloudfront.net"
+                        + "/local/profiles/1/profile.png";
+
         User user = new User(
                 "theo1234@gmail.com",
                 "encoded-password",
                 "theo",
-                "profile.png"
+                profileImageKey
         );
 
         given(userRepository.findById(userId))
                 .willReturn(Optional.of(user));
+
+        given(imageUrlResolver.resolve(profileImageKey))
+                .willReturn(profileImageUrl);
 
         // when
         UserResponse response = userService.getUser(userId);
@@ -235,8 +270,8 @@ class UserServiceTest {
         assertThat(response.getNickname())
                 .isEqualTo("theo");
 
-        assertThat(response.getProfileImage())
-                .isEqualTo("profile.png");
+        assertThat(response.getProfileImageUrl())
+                .isEqualTo(profileImageUrl);
     }
 
     @Test
@@ -269,16 +304,25 @@ class UserServiceTest {
         // given
         Long userId = 1L;
 
+        String oldProfileImageKey =
+                "local/profiles/1/old-profile.png";
+
+        String newProfileImageKey =
+                "local/profiles/1/new-profile.png";
+
+        String newProfileImageUrl =
+                "https://test.cloudfront.net"
+                        + "/local/profiles/1/new-profile.png";
+
         User user = new User(
                 "theo1234@gmail.com",
                 "encoded-password",
                 "theo",
-                "old-profile.png"
+                oldProfileImageKey
         );
 
         UserUpdateRequest request = new UserUpdateRequest(
-                "newTheo",
-                "new-profile.png"
+                "newTheo"
         );
 
         given(userRepository.findById(userId))
@@ -287,16 +331,37 @@ class UserServiceTest {
         given(userRepository.existsByNickname(request.getNickname()))
                 .willReturn(false);
 
+        given(imageService.upload(
+                userId,
+                ImageCategory.PROFILE,
+                List.of(profileImageFile)
+        )).willReturn(List.of(newProfileImageKey));
+
+        given(imageUrlResolver.resolve(newProfileImageKey))
+                .willReturn(newProfileImageUrl);
+
         // when
         UserUpdateResponse response =
-                userService.updateUser(userId, request);
+                userService.updateUser(
+                        userId,
+                        request,
+                        profileImageFile
+                );
 
         // then
         assertThat(response.getNickname())
                 .isEqualTo("newTheo");
 
-        assertThat(response.getProfileImage())
-                .isEqualTo("new-profile.png");
+        assertThat(response.getProfileImageUrl())
+                .isEqualTo(newProfileImageUrl);
+
+        verify(imageService).deleteOnRollback(
+                List.of(newProfileImageKey)
+        );
+
+        verify(imageService).deleteAfterCommit(
+                List.of(oldProfileImageKey)
+        );
     }
 
     @Test
@@ -304,6 +369,13 @@ class UserServiceTest {
     void updateUser_success_when_only_profile_image_changes() {
         // given
         Long userId = 1L;
+
+        String profileImageKey =
+                "local/profiles/1/new-profile.png";
+
+        String profileImageUrl =
+                "https://d2no1l4qcrswb6.cloudfront.net"
+                        + "/local/profiles/1/new-profile.png";
 
         User user = new User(
                 "theo1234@gmail.com",
@@ -313,19 +385,44 @@ class UserServiceTest {
         );
 
         UserUpdateRequest request = new UserUpdateRequest(
-                "theo",
-                "new-profile.png"
+                "theo"
         );
 
         given(userRepository.findById(userId))
                 .willReturn(Optional.of(user));
 
+        given(imageService.upload(
+                userId,
+                ImageCategory.PROFILE,
+                List.of(profileImageFile)
+        )).willReturn(List.of(profileImageKey));
+
+        given(imageUrlResolver.resolve(profileImageKey))
+                .willReturn(profileImageUrl);
+
         // when
-        UserUpdateResponse response = userService.updateUser(userId, request);
+        UserUpdateResponse response =
+                userService.updateUser(
+                        userId,
+                        request,
+                        profileImageFile
+                );
 
         // then
-        assertThat(response.getNickname()).isEqualTo("theo");
-        assertThat(response.getProfileImage()).isEqualTo("new-profile.png");
+        assertThat(response.getNickname())
+                .isEqualTo("theo");
+
+        assertThat(response.getProfileImageUrl())
+                .isEqualTo(profileImageUrl);
+
+        assertThat(user.getProfileImageKey())
+                .isEqualTo(profileImageKey);
+
+        verify(imageService).deleteOnRollback(
+                List.of(profileImageKey)
+        );
+
+        verify(imageService, never()).deleteAfterCommit(any());
 
         verify(userRepository, never())
                 .existsByNickname(any());
@@ -345,8 +442,7 @@ class UserServiceTest {
         );
 
         UserUpdateRequest request = new UserUpdateRequest(
-                "existingNickname",
-                "new-profile.png"
+                "existingNickname"
         );
 
         given(userRepository.findById(userId))
@@ -358,7 +454,11 @@ class UserServiceTest {
         // when
         BusinessException exception = assertThrows(
                 BusinessException.class,
-                () -> userService.updateUser(userId, request)
+                () -> userService.updateUser(
+                        userId,
+                        request,
+                        profileImageFile
+                )
         );
 
         // then
@@ -381,14 +481,17 @@ class UserServiceTest {
 
         // when
         UserUpdateRequest request = new UserUpdateRequest(
-                "newTheo",
-                "new-profile.png"
+                "newTheo"
         );
 
 
         BusinessException exception = assertThrows(
                 BusinessException.class,
-                () -> userService.updateUser(userId, request)
+                () -> userService.updateUser(
+                        userId,
+                        request,
+                        profileImageFile
+                )
         );
 
         // then
@@ -401,7 +504,7 @@ class UserServiceTest {
         assertThat(deletedUser.getNickname()) // 탈퇴한 회원의 닉네임은 "알 수 없음"으로 처리되야 한다.
                 .isEqualTo("알 수 없음");
 
-        assertThat(deletedUser.getProfileImage()) // 프로필 이미지는 null이 되어야 한다.
+        assertThat(deletedUser.getProfileImageKey()) // 프로필 이미지 키는 null이 되어야 한다.
                 .isNull();
     }
 
@@ -524,7 +627,7 @@ class UserServiceTest {
         assertThat(user.getEmail()).isEqualTo("deleted_user_" + userId + "@deleted.local");
         assertThat(user.getPassword()).isNull();
         assertThat(user.getNickname()).isEqualTo("알 수 없음");
-        assertThat(user.getProfileImage()).isNull();
+        assertThat(user.getProfileImageKey()).isNull();
     }
 
     @Test

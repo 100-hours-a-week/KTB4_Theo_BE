@@ -20,15 +20,15 @@ public class PostImage {
     @JoinColumn(name = "postId", nullable = false)
     private Post post;
 
-    @Column(nullable = false, length = 1000)
-    private String imageUrl;
+    @Column(name = "image_key", nullable = false, length = 500)
+    private String imageKey;
 
     @Column(nullable = false)
     private Integer imageOrder; // 게시글 사진 순서를 저장
 
-    public PostImage(Post post, String imageUrl, Integer imageOrder){
+    public PostImage(Post post, String imageKey, Integer imageOrder) {
         this.post = post;
-        this.imageUrl = imageUrl;
+        this.imageKey = imageKey;
         this.imageOrder = imageOrder;
     }
 }

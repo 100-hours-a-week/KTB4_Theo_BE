@@ -13,7 +13,7 @@ public class PostSummaryResponse { // 게시물 목록 조회에서 하나의 �
     private Long postId;
     private String title;
     private String nickname;
-    private String profileImage;
+    private String profileImageUrl;
 
     private int likeCount;
     private int commentCount;
@@ -27,16 +27,17 @@ public class PostSummaryResponse { // 게시물 목록 조회에서 하나의 �
 
     public static PostSummaryResponse from(
             Post post,
-            User user
+            User user,
+            String profileImageUrl
     ) {
         String title = post.isBlinded() ? "숨김 처리된 게시글" : post.getTitle();
         String nickname = "알 수 없음";
-        String profileImage = null;
+        String responseProfileImageUrl = null;
         boolean isAuthorDeleted = true;
 
         if (user != null && !user.isDeleted()) {
             nickname = user.getNickname();
-            profileImage = user.getProfileImage();
+            responseProfileImageUrl = profileImageUrl;
             isAuthorDeleted = false;
         }
 
@@ -44,7 +45,7 @@ public class PostSummaryResponse { // 게시물 목록 조회에서 하나의 �
                 post.getId(),
                 title,
                 nickname,
-                profileImage,
+                responseProfileImageUrl,
                 post.getLikeCount(),
                 post.getCommentCount(),
                 post.getViewCount(),

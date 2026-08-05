@@ -6,8 +6,6 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @NoArgsConstructor
 @Getter
 public class PostCreateRequest {
@@ -18,6 +16,4 @@ public class PostCreateRequest {
 
     @NotBlank(message = "blank_content")
     private String content;
-
-    private List<String> imageUrls;
 }

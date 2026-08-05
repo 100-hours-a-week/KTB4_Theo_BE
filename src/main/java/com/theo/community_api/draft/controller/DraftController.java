@@ -2,15 +2,18 @@ package com.theo.community_api.draft.controller;
 
 import com.theo.community_api.auth.security.CustomUserDetails;
 import com.theo.community_api.common.ApiResponse;
-import com.theo.community_api.draft.dto.DraftRequest;
+import com.theo.community_api.draft.dto.DraftCreateRequest;
 import com.theo.community_api.draft.dto.DraftResponse;
 import com.theo.community_api.draft.dto.DraftSummaryResponse;
+import com.theo.community_api.draft.dto.DraftUpdateRequest;
 import com.theo.community_api.draft.service.DraftService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -21,12 +24,18 @@ public class DraftController {
     private final DraftService draftService;
 
     // 임시글 생성
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<DraftResponse>> craftDraft(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestBody DraftRequest request
+            @RequestPart("request") DraftCreateRequest request,
+            @RequestPart(value = "images", required = false)
+            List<MultipartFile> images
     ){
-        DraftResponse response = draftService.createDraft(userDetails.getUserId(), request);
+        DraftResponse response = draftService.createDraft(
+                userDetails.getUserId(),
+                request,
+                images
+        );
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.of("draft_create_success",response));
     }
@@ -52,13 +61,23 @@ public class DraftController {
     }
 
     // 임시글 덮어쓰기
-    @PutMapping("/{draftId}")
+    @PutMapping(
+            value = "/{draftId}",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
     public ResponseEntity<ApiResponse<DraftResponse>> updateDraft(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long draftId,
-            @RequestBody DraftRequest request
+            @RequestPart("request") DraftUpdateRequest request,
+            @RequestPart(value = "newImages", required = false)
+            List<MultipartFile> newImages
     ){
-        DraftResponse response = draftService.updateDraft(userDetails.getUserId(), draftId, request);
+        DraftResponse response = draftService.updateDraft(
+                userDetails.getUserId(),
+                draftId,
+                request,
+                newImages
+        );
         return ResponseEntity.ok(ApiResponse.of("draft_update_success",response));
     }
 

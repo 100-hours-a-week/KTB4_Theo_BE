@@ -3,6 +3,9 @@ package com.theo.community_api.user.service;
 import com.theo.community_api.auth.dto.IssuedTokens;
 import com.theo.community_api.auth.service.AuthService;
 import com.theo.community_api.common.exception.*;
+import com.theo.community_api.image.domain.ImageCategory;
+import com.theo.community_api.image.service.ImageService;
+import com.theo.community_api.image.url.ImageUrlResolver;
 import com.theo.community_api.user.domain.User;
 import com.theo.community_api.user.dto.*;
 import com.theo.community_api.user.repository.UserRepository;
@@ -10,6 +13,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -18,6 +24,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final AuthService authService;
     private final PasswordEncoder passwordEncoder;
+    private final ImageUrlResolver imageUrlResolver;
+    private final ImageService imageService;
 
     // 회원 정보 조회
     public UserResponse getUser(Long loginUserId) {
@@ -28,12 +36,19 @@ public class UserService {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
 
-        return UserResponse.from(user);
+        String profileImageUrl = imageUrlResolver.resolve(
+                user.getProfileImageKey()
+        );
+
+        return UserResponse.from(user, profileImageUrl);
     }
 
     // 회원가입
     @Transactional
-    public Long signup(SignupRequest request) {
+    public Long signup(
+            SignupRequest request,
+            MultipartFile profileImage
+    ) {
         // 비밀번호, 재입력 비밀번호가 같은지 확인
         if (!request.getPassword().equals(request.getPasswordConfirm())) {
             throw new BusinessException(ErrorCode.PASSWORD_MISMATCH);
@@ -57,9 +72,22 @@ public class UserService {
                 request.getEmail(),
                 encodedPassword,
                 request.getNickname(),
-                request.getProfileImage());
+                null
+        );
 
-        User savedUser = userRepository.save(user);
+        User savedUser = userRepository.saveAndFlush(user);
+
+        String profileImageKey = imageService.upload(
+                savedUser.getId(),
+                ImageCategory.PROFILE,
+                List.of(profileImage)
+        ).getFirst();
+
+        imageService.deleteOnRollback(
+                List.of(profileImageKey)
+        );
+
+        savedUser.updateProfileImage(profileImageKey);
 
         return savedUser.getId();
     }
@@ -84,7 +112,11 @@ public class UserService {
 
     // 회원정보 수정
     @Transactional
-    public UserUpdateResponse updateUser(Long loginUserId, UserUpdateRequest request) {
+    public UserUpdateResponse updateUser(
+            Long loginUserId,
+            UserUpdateRequest request,
+            MultipartFile profileImage
+    ) {
         // 유저 존재여부 확인
         User user = userRepository.findById(loginUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
@@ -101,10 +133,38 @@ public class UserService {
             throw new BusinessException(ErrorCode.NICKNAME_ALREADY_EXIST);
         }
 
-        // 회원정보 갱신
-        user.updateProfile(request.getNickname(), request.getProfileImage());
+        String previousProfileImageKey = user.getProfileImageKey();
+        String newProfileImageKey = previousProfileImageKey;
 
-        return new UserUpdateResponse(user.getNickname(), user.getProfileImage());
+        if (profileImage != null) {
+            newProfileImageKey = imageService.upload(
+                    loginUserId,
+                    ImageCategory.PROFILE,
+                    List.of(profileImage)
+            ).getFirst();
+
+            imageService.deleteOnRollback(
+                    List.of(newProfileImageKey)
+            );
+        }
+
+        // 회원정보 갱신
+        user.updateProfile(
+                request.getNickname(),
+                newProfileImageKey
+        );
+
+        if (profileImage != null && previousProfileImageKey != null) {
+            imageService.deleteAfterCommit(
+                    List.of(previousProfileImageKey)
+            );
+        }
+
+        String profileImageUrl = imageUrlResolver.resolve(
+                user.getProfileImageKey()
+        );
+
+        return new UserUpdateResponse(user.getNickname(), profileImageUrl);
     }
 
     // 비밀번호 수정
@@ -136,8 +196,16 @@ public class UserService {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
 
+        String profileImageKey = user.getProfileImageKey();
+
         // 해당 회원 refreshToken DB에서 삭제
         authService.revokeAllForUser(user.getId());
         user.delete();
+
+        if (profileImageKey != null) {
+            imageService.deleteAfterCommit(
+                    List.of(profileImageKey)
+            );
+        }
     }
 }

@@ -13,7 +13,7 @@ import java.util.List;
 public class PostCommentResponse {
     private Long commentId;
     private String nickname;
-    private String profileImage;
+    private String profileImageUrl;
     private String commentContent;
     private boolean isAuthorDeleted;
     private boolean isCommentDeleted;
@@ -25,15 +25,16 @@ public class PostCommentResponse {
             Comment comment,
             User user,
             Long loginUserId,
+            String profileImageUrl,
             List<PostReplyResponse> replies
     ) {
         String nickname = "알 수 없음";
-        String profileImage = null;
+        String responseProfileImageUrl = null;
         boolean isAuthorDeleted = true;
 
         if (user != null && !user.isDeleted()) {
             nickname = user.getNickname();
-            profileImage = user.getProfileImage();
+            responseProfileImageUrl = profileImageUrl;
             isAuthorDeleted = false;
         }
 
@@ -52,7 +53,7 @@ public class PostCommentResponse {
         return new PostCommentResponse(
                 comment.getId(),
                 nickname,
-                profileImage,
+                responseProfileImageUrl,
                 content,
                 isAuthorDeleted,
                 comment.isDeleted(),

@@ -29,22 +29,26 @@ public class User {
     @Column(nullable = false, length = 10)
     private String nickname;
 
-    @Column(length = 255)
-    private String profileImage;
+    @Column(name = "profile_image_key", length = 500)
+    private String profileImageKey;
 
     private LocalDateTime deletedAt;
 
-    public User(String email, String password, String nickname, String profileImage) {
+    public User(String email, String password, String nickname, String profileImageKey) {
         this.email = email;
         this.password = password;
         this.nickname = nickname;
-        this.profileImage = profileImage;
+        this.profileImageKey = profileImageKey;
     }
 
     // 닉네임과 프로필 이미지 값 변경
-    public void updateProfile(String nickname, String profileImage){
+    public void updateProfile(String nickname, String profileImageKey){
         this.nickname = nickname;
-        this.profileImage = profileImage;
+        this.profileImageKey = profileImageKey;
+    }
+
+    public void updateProfileImage(String profileImageKey) {
+        this.profileImageKey = profileImageKey;
     }
 
     // 비밀번호 수정
@@ -57,7 +61,7 @@ public class User {
         this.email = "deleted_user_" + this.id + "@deleted.local";
         this.password = null;
         this.nickname = "알 수 없음";
-        this.profileImage = null;
+        this.profileImageKey = null;
         this.deletedAt = LocalDateTime.now();
     }
 

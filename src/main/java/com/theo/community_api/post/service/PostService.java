@@ -3,6 +3,10 @@ package com.theo.community_api.post.service;
 import com.theo.community_api.comment.domain.Comment;
 import com.theo.community_api.comment.repository.CommentRepository;
 import com.theo.community_api.common.exception.*;
+import com.theo.community_api.image.domain.ImageCategory;
+import com.theo.community_api.image.service.ImageService;
+import com.theo.community_api.image.url.ImageUrlResolver;
+import com.theo.community_api.image.validation.ImageKeyValidator;
 import com.theo.community_api.notification.service.NotificationService;
 import com.theo.community_api.post.domain.*;
 import com.theo.community_api.post.dto.*;
@@ -15,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -32,15 +37,26 @@ public class PostService {
     private final PostViewRepository postViewRepository;
     private final PostRevisionRepository postRevisionRepository;
     private final NotificationService notificationService;
+    private final ImageUrlResolver imageUrlResolver;
+    private final ImageKeyValidator imageKeyValidator;
+    private final ImageService imageService;
 
     // 게시글 추가
     @Transactional
-    public Long createPost(Long loginUserId, PostCreateRequest request) {
+    public Long createPost(
+            Long loginUserId,
+            PostCreateRequest request,
+            List<MultipartFile> images
+    ) {
         User user = userRepository.findById(loginUserId)
-                .orElseThrow(()->new BusinessException(ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(
+                        () -> new BusinessException(ErrorCode.USER_NOT_FOUND)
+                );
 
-        if(user.isDeleted()){
-            throw new BusinessException(ErrorCode.UNAUTHORIZED_REQUEST);
+        if (user.isDeleted()) {
+            throw new BusinessException(
+                    ErrorCode.UNAUTHORIZED_REQUEST
+            );
         }
 
         Post post = new Post(
@@ -50,7 +66,16 @@ public class PostService {
         );
 
         Post savedPost = postRepository.save(post);
-        savePostImages(savedPost, request.getImageUrls());
+
+        List<String> imageKeys = uploadPostImages(
+                loginUserId,
+                images
+        );
+
+        // 이후 DB 저장이나 커밋이 실패하면 업로드된 S3 객체 삭제
+        imageService.deleteOnRollback(imageKeys);
+
+        savePostImages(savedPost, imageKeys);
 
         return savedPost.getId();
     }
@@ -71,7 +96,16 @@ public class PostService {
         List<PostSummaryResponse> posts = new ArrayList<>();
 
         for(Post post : findPosts){
-            posts.add(PostSummaryResponse.from(post, post.getUser()));
+            User author = post.getUser();
+            String profileImageUrl = resolveProfileImageUrl(author);
+
+            posts.add(
+                    PostSummaryResponse.from(
+                            post,
+                            author,
+                            profileImageUrl
+                    )
+            );
         }
 
         boolean hasNext = false;
@@ -137,9 +171,15 @@ public class PostService {
 
             for (Reply reply : commentReplies) { // 대댓글 리스트 가져오기
                 User replyAuthor = reply.getUser();
+                String profileImageUrl = resolveProfileImageUrl(replyAuthor);
 
                 replyResponses.add(
-                        PostReplyResponse.from(reply, replyAuthor, loginUserId)
+                        PostReplyResponse.from(
+                                reply,
+                                replyAuthor,
+                                loginUserId,
+                                profileImageUrl
+                        )
                 );
             }
 
@@ -148,8 +188,16 @@ public class PostService {
                 continue;
             }
 
+            String profileImageUrl = resolveProfileImageUrl(commentAuthor);
+
             commentResponses.add(
-                    PostCommentResponse.from(comment, commentAuthor, loginUserId, replyResponses)
+                    PostCommentResponse.from(
+                            comment,
+                            commentAuthor,
+                            loginUserId,
+                            profileImageUrl,
+                            replyResponses
+                    )
             );
         }
 
@@ -159,23 +207,72 @@ public class PostService {
         List<String> imageUrls = new ArrayList<>();
 
         for (PostImage postImage : postImages) {
-            imageUrls.add(postImage.getImageUrl());
+            String imageUrl = imageUrlResolver.resolve(postImage.getImageKey());
+
+            imageUrls.add(imageUrl);
         }
 
         boolean liked = postLikeRepository.existsByPostIdAndUserId(postId, loginUserId);
 
-        return PostDetailResponse.from(post, postAuthor, loginUserId, liked, imageUrls, commentResponses);
+        String authorProfileImageUrl = resolveProfileImageUrl(postAuthor);
+
+        return PostDetailResponse.from(
+                post,
+                postAuthor,
+                loginUserId,
+                liked,
+                authorProfileImageUrl,
+                imageUrls,
+                commentResponses
+        );
     }
 
     // 게시글 수정
     @Transactional
-    public PostUpdateResponse updatePost(Long loginUserId, Long postId, PostUpdateRequest request) {
+    public PostUpdateResponse updatePost(
+            Long loginUserId,
+            Long postId,
+            PostUpdateRequest request,
+            List<MultipartFile> newImages
+    ) {
         Post post = postRepository.findByIdWithUser(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
 
         if (!post.getUser().getId().equals(loginUserId)) {
             throw new BusinessException(ErrorCode.POST_MODIFY_FORBIDDEN);
         }
+
+        List<PostImage> existingImages =
+                postImageRepository.findAllByPost_IdOrderByImageOrderAsc(postId);
+
+        List<String> existingImageKeys = existingImages.stream()
+                .map(PostImage::getImageKey)
+                .toList();
+
+        List<String> retainedImageKeys = validatePostImageKeys(
+                request.getRetainedImageKeys(),
+                loginUserId
+        );
+
+        validateRetainedImageKeys(
+                existingImageKeys,
+                retainedImageKeys
+        );
+
+        List<String> uploadedImageKeys = uploadPostImages(
+                loginUserId,
+                newImages
+        );
+
+        imageService.deleteOnRollback(uploadedImageKeys);
+
+        List<String> finalImageKeys = new ArrayList<>(retainedImageKeys);
+        finalImageKeys.addAll(uploadedImageKeys);
+
+        List<String> removedImageKeys = findRemovedImageKeys(
+                existingImageKeys,
+                retainedImageKeys
+        );
 
         // 게시글 수정 전 기존 제목/내용을 수정이력으로 저장
         PostRevision postRevision = PostRevision.from(post);
@@ -184,9 +281,10 @@ public class PostService {
         // 게시글 현재 내용 수정
         post.update(request.getTitle(), request.getContent());
 
-        // 기존 이미지 삭제 후 새로운 이미지로 저장 (개선필요 부분)
+        // DB 이미지 관계는 요청 순서대로 다시 저장하되, 유지된 S3 객체는 삭제하지 않는다.
         postImageRepository.deleteAllByPostIdInBulk(postId);
-        savePostImages(post, request.getImageUrls());
+        savePostImages(post, finalImageKeys);
+        imageService.deleteAfterCommit(removedImageKeys);
 
         return new PostUpdateResponse(post.isEdited());
     }
@@ -201,13 +299,20 @@ public class PostService {
             throw new BusinessException(ErrorCode.POST_DELETE_FORBIDDEN);
         }
 
+        List<String> imageKeys = postImageRepository
+                .findAllByPost_IdOrderByImageOrderAsc(postId)
+                .stream()
+                .map(PostImage::getImageKey)
+                .toList();
+
         // 게시글 삭제 시 기존 이미지 모두 삭제
         postImageRepository.deleteAllByPostIdInBulk(postId);
         post.delete();
+        imageService.deleteAfterCommit(imageKeys);
     }
 
-    private void savePostImages(Post post, List<String> imageUrls) {
-        if (imageUrls == null || imageUrls.isEmpty()) {
+    private void savePostImages(Post post, List<String> imageKeys) {
+        if (imageKeys == null || imageKeys.isEmpty()) {
             return;
         }
 
@@ -215,13 +320,48 @@ public class PostService {
 
         int imageOrder = 1;
 
-        for (String imageUrl : imageUrls) {
-            PostImage postImage = new PostImage(post, imageUrl, imageOrder);
+        for (String imageKey : imageKeys) {
+            PostImage postImage = new PostImage(post, imageKey, imageOrder);
             postImages.add(postImage);
             imageOrder++;
         }
 
         postImageRepository.saveAll(postImages);
+    }
+
+    private List<String> validatePostImageKeys(
+            List<String> imageKeys,
+            Long userId
+    ) {
+        imageKeyValidator.validateAllForUser(
+                imageKeys,
+                ImageCategory.POST,
+                userId
+        );
+
+        return imageKeys == null
+                ? List.of()
+                : List.copyOf(imageKeys);
+    }
+
+    private List<String> findRemovedImageKeys(
+            List<String> existingImageKeys,
+            List<String> newImageKeys
+    ) {
+        Set<String> retainedKeys = new HashSet<>(newImageKeys);
+
+        return existingImageKeys.stream()
+                .filter(imageKey -> !retainedKeys.contains(imageKey))
+                .toList();
+    }
+
+    private void validateRetainedImageKeys(
+            List<String> existingImageKeys,
+            List<String> retainedImageKeys
+    ) {
+        if (!existingImageKeys.containsAll(retainedImageKeys)) {
+            throw new BusinessException(ErrorCode.INVALID_IMAGE_KEY);
+        }
     }
 
     // 게시글 좋아요 토글
@@ -292,5 +432,30 @@ public class PostService {
             postView.updateViewedAt(now);
             post.increaseViewCount();
         }
+    }
+
+    private String resolveProfileImageUrl(User user) {
+        if (user == null || user.isDeleted()) {
+            return null;
+        }
+
+        return imageUrlResolver.resolve(
+                user.getProfileImageKey()
+        );
+    }
+
+    private List<String> uploadPostImages(
+            Long userId,
+            List<MultipartFile> images
+    ) {
+        if (images == null || images.isEmpty()) {
+            return List.of();
+        }
+
+        return imageService.upload(
+                userId,
+                ImageCategory.POST,
+                images
+        );
     }
 }

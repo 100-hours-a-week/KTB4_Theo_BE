@@ -3,12 +3,17 @@ package com.theo.community_api.draft.service;
 import com.theo.community_api.common.exception.*;
 import com.theo.community_api.draft.domain.Draft;
 import com.theo.community_api.draft.domain.DraftImage;
+import com.theo.community_api.draft.dto.DraftCreateRequest;
 import com.theo.community_api.draft.dto.DraftImageResponse;
-import com.theo.community_api.draft.dto.DraftRequest;
 import com.theo.community_api.draft.dto.DraftResponse;
 import com.theo.community_api.draft.dto.DraftSummaryResponse;
+import com.theo.community_api.draft.dto.DraftUpdateRequest;
 import com.theo.community_api.draft.repository.DraftImageRepository;
 import com.theo.community_api.draft.repository.DraftRepository;
+import com.theo.community_api.image.domain.ImageCategory;
+import com.theo.community_api.image.service.ImageService;
+import com.theo.community_api.image.url.ImageUrlResolver;
+import com.theo.community_api.image.validation.ImageKeyValidator;
 import com.theo.community_api.post.domain.Post;
 import com.theo.community_api.post.domain.PostImage;
 import com.theo.community_api.post.repository.PostImageRepository;
@@ -18,9 +23,12 @@ import com.theo.community_api.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -32,23 +40,45 @@ public class DraftService {
     private final UserRepository userRepository;
     private final DraftImageRepository draftImageRepository;
     private final PostImageRepository postImageRepository;
+    private final ImageUrlResolver imageUrlResolver;
+    private final ImageKeyValidator imageKeyValidator;
+    private final ImageService imageService;
 
     // 임시글 생성
     @Transactional
-    public DraftResponse createDraft(Long loginUserId, DraftRequest request) {
+    public DraftResponse createDraft(
+            Long loginUserId,
+            DraftCreateRequest request,
+            List<MultipartFile> images
+    ) {
         // 제목 또는 내용 비어있는 경우
-        if (isEmptyDraft(request)) {
+        if (isEmptyDraft(
+                request.getTitle(),
+                request.getContent(),
+                List.of(),
+                images
+        )) {
             throw new BusinessException(ErrorCode.EMPTY_DRAFT_CONTENT);
         }
 
         User user = userRepository.findById(loginUserId)
                 .orElseThrow(()-> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
+        if (user.isDeleted()) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_REQUEST);
+        }
+
         Draft draft = new Draft(user,request.getTitle(), request.getContent());
 
         Draft savedDraft = draftRepository.save(draft);
 
-        saveDraftImages(savedDraft, request.getImageUrls());
+        List<String> imageKeys = uploadDraftImages(
+                loginUserId,
+                images
+        );
+
+        imageService.deleteOnRollback(imageKeys);
+        saveDraftImages(savedDraft, imageKeys);
 
         return toDraftResponse(savedDraft);
     }
@@ -78,19 +108,62 @@ public class DraftService {
 
     // 임시글 덮어쓰기
     @Transactional
-    public DraftResponse updateDraft(Long loginUserId, Long draftId, DraftRequest request) {
-        if (isEmptyDraft(request)) {
+    public DraftResponse updateDraft(
+            Long loginUserId,
+            Long draftId,
+            DraftUpdateRequest request,
+            List<MultipartFile> newImages
+    ) {
+        if (isEmptyDraft(
+                request.getTitle(),
+                request.getContent(),
+                request.getRetainedImageKeys(),
+                newImages
+        )) {
             throw new BusinessException(ErrorCode.EMPTY_DRAFT_CONTENT);
         }
 
         Draft draft = draftRepository.findByIdAndUserId(draftId, loginUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DRAFT_NOT_FOUND));
 
+        List<DraftImage> existingImages =
+                draftImageRepository.findAllByDraftIdOrderByImageOrderAsc(draft.getId());
+
+        List<String> existingImageKeys = existingImages.stream()
+                .map(DraftImage::getImageKey)
+                .toList();
+
+        List<String> retainedImageKeys = validateDraftImageKeys(
+                request.getRetainedImageKeys(),
+                loginUserId
+        );
+
+        validateRetainedImageKeys(
+                existingImageKeys,
+                retainedImageKeys
+        );
+
+        List<String> uploadedImageKeys = uploadDraftImages(
+                loginUserId,
+                newImages
+        );
+
+        imageService.deleteOnRollback(uploadedImageKeys);
+
+        List<String> finalImageKeys = new ArrayList<>(retainedImageKeys);
+        finalImageKeys.addAll(uploadedImageKeys);
+
+        List<String> removedImageKeys = findRemovedImageKeys(
+                existingImageKeys,
+                retainedImageKeys
+        );
+
         draft.update(request.getTitle(), request.getContent());
 
-        // 덮어쓰기 정책: 기존 이미지 접누 삭제 후 새로운 이미지로 모두 저장
+        // DB 이미지 관계는 요청 순서대로 다시 저장하되, 유지된 S3 객체는 삭제하지 않는다.
         draftImageRepository.deleteAllByDraftIdInBulk(draft.getId());
-        saveDraftImages(draft, request.getImageUrls());
+        saveDraftImages(draft, finalImageKeys);
+        imageService.deleteAfterCommit(removedImageKeys);
 
         return toDraftResponse(draft);
     }
@@ -102,8 +175,16 @@ public class DraftService {
         Draft draft = draftRepository.findByIdAndUserId(draftId, loginUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DRAFT_NOT_FOUND));
 
-        draftImageRepository.deleteAllByDraftIdInBulk(draft.getId());
+        List<DraftImage> draftImages = draftImageRepository
+                .findAllByDraftIdOrderByImageOrderAsc(draft.getId());
+
+        List<String> imageKeys = draftImages.stream()
+                .map(DraftImage::getImageKey)
+                .toList();
+
+        draftImageRepository.deleteAll(draftImages);
         draftRepository.delete(draft);
+        imageService.deleteAfterCommit(imageKeys);
     }
 
     // 임시글 발행
@@ -130,14 +211,14 @@ public class DraftService {
         for (DraftImage draftImage : draftImages) {
                 PostImage postImage = new PostImage(
                     savedPost,
-                    draftImage.getImageUrl(),
+                    draftImage.getImageKey(),
                     draftImage.getImageOrder()
                 );
 
                 postImageRepository.save(postImage);
         }
 
-        // 임시글 이미지 삭제
+        // 발행된 Key는 게시글이 이어서 사용하므로 임시글 이미지 DB 관계만 삭제한다.
         draftImageRepository.deleteAllByDraftId(draft.getId());
 
         // 기존 임시글 삭제
@@ -146,23 +227,23 @@ public class DraftService {
         return savedPost.getId();
     }
 
-    private void saveDraftImages(Draft draft, List<String> imageUrls) {
-        if (imageUrls == null || imageUrls.isEmpty()) {
+    private void saveDraftImages(Draft draft, List<String> imageKeys) {
+        if (imageKeys == null || imageKeys.isEmpty()) {
             return;
         }
 
         List<DraftImage> draftImages = new ArrayList<>();
 
-        for (int i = 0; i < imageUrls.size(); i++) {
-            String imageUrl = imageUrls.get(i);
+        for (int i = 0; i < imageKeys.size(); i++) {
+            String imageKey = imageKeys.get(i);
 
-            if (isBlank(imageUrl)) {
+            if (isBlank(imageKey)) {
                 continue;
             }
 
             DraftImage draftImage = new DraftImage(
                     draft,
-                    imageUrl,
+                    imageKey,
                     i + 1
             );
 
@@ -172,6 +253,56 @@ public class DraftService {
         draftImageRepository.saveAll(draftImages);
     }
 
+    private List<String> validateDraftImageKeys(
+            List<String> imageKeys,
+            Long userId
+    ) {
+        imageKeyValidator.validateAllForUser(
+                imageKeys,
+                ImageCategory.POST,
+                userId
+        );
+
+        return imageKeys == null
+                ? List.of()
+                : List.copyOf(imageKeys);
+    }
+
+    private List<String> uploadDraftImages(
+            Long userId,
+            List<MultipartFile> images
+    ) {
+        if (images == null || images.isEmpty()) {
+            return List.of();
+        }
+
+        return imageService.upload(
+                userId,
+                ImageCategory.POST,
+                images
+        );
+    }
+
+    private List<String> findRemovedImageKeys(
+            List<String> existingImageKeys,
+            List<String> newImageKeys
+    ) {
+        Set<String> retainedKeys = new HashSet<>(newImageKeys);
+
+        return existingImageKeys.stream()
+                .filter(imageKey -> !retainedKeys.contains(imageKey))
+                .toList();
+    }
+
+    private void validateRetainedImageKeys(
+            List<String> existingImageKeys,
+            List<String> retainedImageKeys
+    ) {
+        if (!existingImageKeys.containsAll(retainedImageKeys)) {
+            throw new BusinessException(ErrorCode.INVALID_IMAGE_KEY);
+        }
+    }
+
     private DraftResponse toDraftResponse(Draft draft) {
         List<DraftImage> draftImages =
                 draftImageRepository.findAllByDraftIdOrderByImageOrderAsc(draft.getId());
@@ -179,25 +310,37 @@ public class DraftService {
         List<DraftImageResponse> imageResponses = new ArrayList<>();
 
         for (DraftImage draftImage : draftImages) {
-            imageResponses.add(DraftImageResponse.from(draftImage));
+            String imageUrl = imageUrlResolver.resolve(
+                    draftImage.getImageKey()
+            );
+
+            imageResponses.add(
+                    DraftImageResponse.from(draftImage, imageUrl)
+            );
         }
 
         return DraftResponse.from(draft, imageResponses);
     }
 
-    private boolean isEmptyDraft(DraftRequest request) {
-        return isBlank(request.getTitle())
-                && isBlank(request.getContent())
-                && isEmptyImages(request.getImageUrls());
+    private boolean isEmptyDraft(
+            String title,
+            String content,
+            List<String> retainedImageKeys,
+            List<MultipartFile> newImages
+    ) {
+        return isBlank(title)
+                && isBlank(content)
+                && isEmptyImages(retainedImageKeys)
+                && (newImages == null || newImages.isEmpty());
     }
 
-    private boolean isEmptyImages(List<String> imageUrls) {
-        if (imageUrls == null || imageUrls.isEmpty()) {
+    private boolean isEmptyImages(List<String> imageKeys) {
+        if (imageKeys == null || imageKeys.isEmpty()) {
             return true;
         }
 
-        for (String imageUrl : imageUrls) {
-            if (!isBlank(imageUrl)) {
+        for (String imageKey : imageKeys) {
+            if (!isBlank(imageKey)) {
                 return false;
             }
         }

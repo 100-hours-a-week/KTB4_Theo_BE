@@ -7,8 +7,8 @@ import java.util.List;
 
 @Getter
 @NoArgsConstructor
-public class DraftRequest {
+public class DraftUpdateRequest {
     private String title;
     private String content;
-    private List<String> imageUrls;
+    private List<String> retainedImageKeys;
 }

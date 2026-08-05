@@ -12,21 +12,26 @@ import java.time.LocalDateTime;
 public class PostReplyResponse {
     private Long replyId;
     private String nickname;
-    private String profileImage;
+    private String profileImageUrl;
     private String replyContent;
     private boolean isAuthorDeleted;
     private boolean isReplyDeleted;
     private boolean isAuthor;
     private LocalDateTime createdAt;
 
-    public static PostReplyResponse from(Reply reply, User user, Long loginUserId) {
+    public static PostReplyResponse from(
+            Reply reply,
+            User user,
+            Long loginUserId,
+            String profileImageUrl
+    ) {
         String nickname = "알 수 없음";
-        String profileImage = null;
+        String responseProfileImageUrl = null;
         boolean isAuthorDeleted = true;
 
         if (user != null && !user.isDeleted()) {
             nickname = user.getNickname();
-            profileImage = user.getProfileImage();
+            responseProfileImageUrl = profileImageUrl;
             isAuthorDeleted = false;
         }
 
@@ -39,7 +44,7 @@ public class PostReplyResponse {
         return new PostReplyResponse(
                 reply.getId(),
                 nickname,
-                profileImage,
+                responseProfileImageUrl,
                 reply.getContent(),
                 isAuthorDeleted,
                 reply.isDeleted(),
