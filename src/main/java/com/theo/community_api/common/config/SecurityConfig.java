@@ -70,7 +70,6 @@ public class SecurityConfig {
                                 "/auth/reissue",
                                 "/auth/logout",
                                 "/error",
-                                "/images/**",
                                 "/actuator/health",
                                 "/actuator/metrics",
                                 "/actuator/metrics/**",

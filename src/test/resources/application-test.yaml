@@ -21,3 +21,11 @@ logging:
   level:
     org.springframework.jdbc.core.JdbcTemplate: INFO
     org.springframework.jdbc.core.StatementCreatorUtils: INFO
+
+image:
+  s3:
+    bucket: test-image-bucket
+    region: ap-northeast-2
+    prefix: test
+  cloud-front:
+    base-url: https://test.cloudfront.net

@@ -11,3 +11,13 @@ management:
   endpoint:
     health:
       show-details: always
+
+image:
+  s3:
+    bucket: ${AWS_S3_BUCKET}
+    region: ap-northeast-2
+    prefix: local
+    profile-name: community-api-local
+
+  cloud-front:
+    base-url: ${CLOUD_FRONT_BASE_URL}
