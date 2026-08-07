@@ -59,7 +59,7 @@ public class SecurityConfig {
                                 DispatcherType.ERROR
                         ).permitAll()
 
-                        // CORS 사전 요청 허용
+                        // CORS 사전 요청 허용 (preflight)
                         .requestMatchers(HttpMethod.OPTIONS, "/**")
                         .permitAll()
 
