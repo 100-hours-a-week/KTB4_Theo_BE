@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -47,6 +49,7 @@ public class PostReport {
     // 신고 처리 상태
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     private PostReportStatus status;
 
     // 관리자 처리 시각

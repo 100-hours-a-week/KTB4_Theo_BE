@@ -9,6 +9,8 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -58,11 +60,13 @@ public class Notification extends BaseTimeEntity {
 
     // 알림 유형 LIKE, COMMENT, REPLY
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(nullable = false, length = 20)
     private NotificationType type;
 
     // 알림이 발생한 데이터 유형 POST, COMMENT, REPLY
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(nullable = false, length = 20)
     private NotificationSourceType sourceType;
 
