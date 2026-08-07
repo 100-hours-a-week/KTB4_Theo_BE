@@ -60,6 +60,7 @@ export const options = {
 export default function () {
   const testUser = testUsers[exec.vu.idInTest - 1];
   validateTestUser(testUser);
+  const clientId = createSseClientId(exec.vu.idInTest);
 
   const phase = currentPhase();
   const tags = {
@@ -79,6 +80,7 @@ export default function () {
         Authorization: `Bearer ${testUser.token}`,
         Accept: "text/event-stream",
         "Cache-Control": "no-cache",
+        "X-SSE-Client-Id": clientId,
       },
       tags,
     },
@@ -154,6 +156,12 @@ export default function () {
     );
     sleep(1);
   }
+}
+
+function createSseClientId(vuId) {
+  const suffix = vuId.toString(16).padStart(12, "0");
+
+  return `00000000-0000-4000-8000-${suffix}`;
 }
 
 function validateTestUser(testUser) {

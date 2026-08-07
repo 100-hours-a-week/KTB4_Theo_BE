@@ -5,7 +5,7 @@
 - `prepare-users.js`: 부하 테스트용 회원을 미리 생성한다.
 - `unread-count-polling.js`: 각 가상 사용자가 자기 계정으로 로그인한 뒤 미읽음 알림 개수를 주기적으로 조회한다.
 - `unread-count-polling-limit.js`: 사전 발급한 사용자별 JWT를 `SharedArray`로 읽고 로그인 없이 다중 사용자의 폴링 API 처리 한계를 측정한다.
-- `notification-sse.js`: 사전 발급한 사용자별 JWT로 SSE 구독 연결을 생성하고 `connect` 이벤트와 연결 유지 상태를 검증한다.
+- `notification-sse.js`: 사전 발급한 사용자별 JWT와 VU별 고유 SSE client ID로 구독 연결을 생성하고 `connect` 이벤트와 연결 유지 상태를 검증한다.
 - `results/`: 반복 실행하는 k6 결과 파일을 저장한다. Git에는 포함하지 않는다.
 - `../reports/data/`: 최종 분석에 사용한 결과만 선별해 보존한다. Git에 포함한다.
 - `../reports/polling-load-test.md`: 확정 결과와 분석을 기록한다.
@@ -70,6 +70,8 @@ load-tests/monitoring/collect-actuator.sh \
 ```
 
 이 테스트에서는 실제 알림을 생성하지 않고 SSE 연결, `connect` 이벤트, Steady State 활성 Emitter와 서버 자원을 확인한다. 대규모 알림 전달 성공률과 전달 지연은 기존 폴링 테스트와 직접 비교할 수 없으므로 이번 부하 테스트 범위에서 제외한다. 상세 기준은 `../reports/sse-connection-test-plan.md`를 따른다.
+
+각 VU는 자신의 `idInTest`로 UUID 형식의 client ID를 생성하고 `X-SSE-Client-Id` 요청 헤더로 전달한다. 동일 VU의 반복 연결은 같은 client ID를 사용하고 서로 다른 VU는 서로 다른 client ID를 사용한다.
 
 ## 1. 사전 준비
 

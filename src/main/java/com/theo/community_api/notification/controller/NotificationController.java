@@ -91,10 +91,12 @@ public class NotificationController {
             produces = MediaType.TEXT_EVENT_STREAM_VALUE
     )
     public SseEmitter subscribe(
-            @AuthenticationPrincipal CustomUserDetails userDetails
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestHeader("X-SSE-Client-Id") String clientId
     ){
         return sseEmitterService.subscribe(
-                userDetails.getUserId()
+                userDetails.getUserId(),
+                clientId
         );
     }
 }
