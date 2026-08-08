@@ -52,12 +52,11 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("""
         select p
         from Post p
-        join fetch p.user
         where p.id = :postId
           and p.deletedAt is null
           and p.isBlinded = false
     """)
-    Optional<Post> findByIdWithUserForUpdate(
+    Optional<Post> findByIdForUpdate(
             @Param("postId") Long postId
     );
 }

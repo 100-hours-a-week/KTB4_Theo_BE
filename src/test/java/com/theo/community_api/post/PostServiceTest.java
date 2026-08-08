@@ -87,7 +87,7 @@ class PostServiceTest {
 
         Post post = createPost(10L, author);
 
-        given(postRepository.findByIdWithUserForUpdate(post.getId()))
+        given(postRepository.findByIdForUpdate(post.getId()))
                 .willReturn(Optional.of(post));
 
         given(userRepository.findById(actor.getId()))
@@ -137,7 +137,7 @@ class PostServiceTest {
 
         PostLike postLike = new PostLike(post, actor);
 
-        given(postRepository.findByIdWithUserForUpdate(post.getId()))
+        given(postRepository.findByIdForUpdate(post.getId()))
                 .willReturn(Optional.of(post));
 
         given(userRepository.findById(actor.getId()))
