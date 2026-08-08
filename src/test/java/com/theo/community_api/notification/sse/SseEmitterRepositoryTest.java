@@ -53,4 +53,20 @@ class SseEmitterRepositoryTest {
         assertThat(repository.findByUserId(1L))
                 .containsEntry("client-a", second);
     }
+
+    @Test
+    @DisplayName("전체 사용자의 Emitter 연결 정보를 조회한다.")
+    void findsAllEmitterConnections() {
+        SseEmitter first = new SseEmitter();
+        SseEmitter second = new SseEmitter();
+
+        repository.replace(1L, "client-a", first);
+        repository.replace(2L, "client-b", second);
+
+        assertThat(repository.findAll())
+                .containsExactlyInAnyOrder(
+                        new SseEmitterConnection(1L, "client-a", first),
+                        new SseEmitterConnection(2L, "client-b", second)
+                );
+    }
 }

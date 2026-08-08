@@ -12,6 +12,8 @@ public class SseMetrics {
     private final Counter connectionFailures;
     private final Counter notificationsSent;
     private final Counter notificationFailures;
+    private final Counter heartbeatsSent;
+    private final Counter heartbeatFailures;
 
     public SseMetrics(
             MeterRegistry meterRegistry,
@@ -37,6 +39,12 @@ public class SseMetrics {
         notificationFailures = Counter.builder("sse.notifications.failed")
                 .description("SSE 알림 이벤트 전송 실패 수")
                 .register(meterRegistry);
+        heartbeatsSent = Counter.builder("sse.heartbeats.sent")
+                .description("SSE heartbeat 전송 성공 수")
+                .register(meterRegistry);
+        heartbeatFailures = Counter.builder("sse.heartbeats.failed")
+                .description("SSE heartbeat 전송 실패 수")
+                .register(meterRegistry);
     }
 
     public void recordConnection() {
@@ -53,5 +61,13 @@ public class SseMetrics {
 
     public void recordNotificationFailure() {
         notificationFailures.increment();
+    }
+
+    public void recordHeartbeatSent() {
+        heartbeatsSent.increment();
+    }
+
+    public void recordHeartbeatFailure() {
+        heartbeatFailures.increment();
     }
 }

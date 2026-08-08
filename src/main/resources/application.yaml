@@ -38,6 +38,12 @@ jwt:
   refresh-token-expiration: 604800000
   issuer: community-api
 
+notification:
+  sse:
+    heartbeat:
+      enabled: ${SSE_HEARTBEAT_ENABLED:true}
+      interval: ${SSE_HEARTBEAT_INTERVAL:60s}
+
 logging:
   level:
     org.springframework.jdbc.core.JdbcTemplate: DEBUG

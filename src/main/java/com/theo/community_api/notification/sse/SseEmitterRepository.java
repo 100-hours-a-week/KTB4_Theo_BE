@@ -3,6 +3,8 @@ package com.theo.community_api.notification.sse;
 import org.springframework.stereotype.Repository;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -47,6 +49,24 @@ public class SseEmitterRepository {
         }
 
         return Map.copyOf(userEmitters);
+    }
+
+    public List<SseEmitterConnection> findAll() {
+        List<SseEmitterConnection> connections = new ArrayList<>();
+
+        emitters.forEach((userId, userEmitters) ->
+                userEmitters.forEach((clientId, emitter) ->
+                        connections.add(
+                                new SseEmitterConnection(
+                                        userId,
+                                        clientId,
+                                        emitter
+                                )
+                        )
+                )
+        );
+
+        return List.copyOf(connections);
     }
 
     public boolean delete(

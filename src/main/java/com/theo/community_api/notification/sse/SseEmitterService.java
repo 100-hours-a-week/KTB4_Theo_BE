@@ -23,6 +23,8 @@ public class SseEmitterService {
     private static final String CONNECT_EVENT_NAME = "connect";
     // 실제 알림 데이터를 전송할 때 사용하는 SSE 이벤트 이름
     private static final String NOTIFICATION_EVENT_NAME = "notification";
+    // SSE 연결 상태를 확인하기 위해 전송하는 comment
+    private static final String HEARTBEAT_COMMENT = "heartbeat";
 
     private final SseEmitterRepository emitterRepository;
     private final SseMetrics sseMetrics;
@@ -62,6 +64,13 @@ public class SseEmitterService {
                     entry.getValue(),
                     notification
             );
+        }
+    }
+
+    // 현재 저장된 모든 SSE 연결에 heartbeat 전송
+    public void sendHeartbeats() {
+        for (SseEmitterConnection connection : emitterRepository.findAll()) {
+            sendHeartbeat(connection);
         }
     }
 
@@ -139,6 +148,30 @@ public class SseEmitterService {
                     userId,
                     clientId,
                     notification.getNotificationId(),
+                    exception
+            );
+        }
+    }
+
+    private void sendHeartbeat(SseEmitterConnection connection) {
+        try {
+            connection.emitter().send(
+                    SseEmitter.event()
+                            .comment(HEARTBEAT_COMMENT)
+            );
+            sseMetrics.recordHeartbeatSent();
+        } catch (IOException | IllegalStateException exception) {
+            deleteEmitter(
+                    connection.userId(),
+                    connection.clientId(),
+                    connection.emitter()
+            );
+            sseMetrics.recordHeartbeatFailure();
+
+            log.debug(
+                    "SSE heartbeat 전송 실패. userId={}, clientId={}",
+                    connection.userId(),
+                    connection.clientId(),
                     exception
             );
         }
