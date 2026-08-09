@@ -8,6 +8,7 @@ import com.theo.community_api.auth.repository.RefreshTokenRepository;
 import com.theo.community_api.auth.token.TokenHasher;
 import com.theo.community_api.common.exception.BusinessException;
 import com.theo.community_api.common.exception.ErrorCode;
+import com.theo.community_api.common.time.UtcDateTimes;
 import com.theo.community_api.user.domain.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -46,7 +47,7 @@ public class AuthService {
                 tokenHasher.hash(refreshToken);
 
         LocalDateTime expiresAt =
-                LocalDateTime.now().plus(
+                UtcDateTimes.now().plus(
                         Duration.ofMillis(
                                 jwtProperties.refreshTokenExpiration()
                         )
@@ -121,7 +122,7 @@ public class AuthService {
 
     @Transactional
     public void deleteExpiredRefreshTokens() {
-        refreshTokenRepository.deleteAllByExpiresAtBefore(LocalDateTime.now());
+        refreshTokenRepository.deleteAllByExpiresAtBefore(UtcDateTimes.now());
     }
 
     private void revoke(String refreshToken) {

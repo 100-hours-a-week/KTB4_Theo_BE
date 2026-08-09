@@ -1,5 +1,6 @@
 package com.theo.community_api.user.domain;
 
+import com.theo.community_api.common.time.UtcDateTimes;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -62,7 +63,7 @@ public class User {
         this.password = null;
         this.nickname = "알 수 없음";
         this.profileImageKey = null;
-        this.deletedAt = LocalDateTime.now();
+        this.deletedAt = UtcDateTimes.now();
     }
 
     // 회원 탈퇴여부 확인

@@ -1,5 +1,6 @@
 package com.theo.community_api.post.domain;
 
+import com.theo.community_api.common.time.UtcDateTimes;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -35,7 +36,7 @@ public class PostRevision {
         this.post = post;
         this.title = title;
         this.content = content;
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = UtcDateTimes.now();
     }
 
     public static PostRevision from(Post post) {

@@ -1,5 +1,6 @@
 package com.theo.community_api.reply.domain;
 
+import com.theo.community_api.common.time.UtcDateTimes;
 import com.theo.community_api.comment.domain.Comment;
 import com.theo.community_api.common.BaseTimeEntity;
 import com.theo.community_api.user.domain.User;
@@ -47,7 +48,7 @@ public class Reply extends BaseTimeEntity {
         this.comment = comment;
         this.user = user;
         this.content = content;
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = UtcDateTimes.now();
     }
 
     public void update(String content) {
@@ -55,7 +56,7 @@ public class Reply extends BaseTimeEntity {
     }
 
     public void delete(){
-        this.deletedAt = LocalDateTime.now();
+        this.deletedAt = UtcDateTimes.now();
     }
 
     public boolean isDeleted(){

@@ -1,5 +1,6 @@
 package com.theo.community_api.auth.domain;
 
+import com.theo.community_api.common.time.UtcDateTimes;
 import com.theo.community_api.user.domain.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -39,10 +40,10 @@ public class RefreshToken {
         this.user = user;
         this.tokenHash = tokenHash;
         this.expiresAt = expiresAt;
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = UtcDateTimes.now();
     }
 
     public boolean isExpired() {
-        return expiresAt.isBefore(LocalDateTime.now());
+        return expiresAt.isBefore(UtcDateTimes.now());
     }
 }

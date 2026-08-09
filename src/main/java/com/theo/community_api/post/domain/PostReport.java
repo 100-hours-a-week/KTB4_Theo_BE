@@ -1,5 +1,6 @@
 package com.theo.community_api.post.domain;
 
+import com.theo.community_api.common.time.UtcDateTimes;
 import com.theo.community_api.user.domain.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -63,7 +64,7 @@ public class PostReport {
         this.post = post;
         this.user = user;
         this.reason = reason;
-        this.reportedAt = LocalDateTime.now();
+        this.reportedAt = UtcDateTimes.now();
         this.status = PostReportStatus.PENDING;
     }
 
@@ -73,13 +74,13 @@ public class PostReport {
 
     public void accept(String adminMemo) {
         this.status = PostReportStatus.ACCEPTED;
-        this.processedAt = LocalDateTime.now();
+        this.processedAt = UtcDateTimes.now();
         this.adminMemo = adminMemo;
     }
 
     public void reject(String adminMemo) {
         this.status = PostReportStatus.REJECTED;
-        this.processedAt = LocalDateTime.now();
+        this.processedAt = UtcDateTimes.now();
         this.adminMemo = adminMemo;
     }
 

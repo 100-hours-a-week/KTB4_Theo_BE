@@ -1,5 +1,6 @@
 package com.theo.community_api.post.domain;
 
+import com.theo.community_api.common.time.UtcDateTimes;
 import com.theo.community_api.user.domain.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -40,7 +41,7 @@ public class PostView {
     public PostView(Post post, User user) {
         this.post = post;
         this.user = user;
-        this.viewedAt = LocalDateTime.now();
+        this.viewedAt = UtcDateTimes.now();
     }
 
     // 조회수 증가여부 확인 (조회 시점으로부터 24시간이상 지난 시점이여야 함)

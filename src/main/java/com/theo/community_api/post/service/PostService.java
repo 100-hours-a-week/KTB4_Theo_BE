@@ -3,6 +3,7 @@ package com.theo.community_api.post.service;
 import com.theo.community_api.comment.domain.Comment;
 import com.theo.community_api.comment.repository.CommentRepository;
 import com.theo.community_api.common.exception.*;
+import com.theo.community_api.common.time.UtcDateTimes;
 import com.theo.community_api.image.domain.ImageCategory;
 import com.theo.community_api.image.service.ImageService;
 import com.theo.community_api.image.url.ImageUrlResolver;
@@ -413,7 +414,7 @@ public class PostService {
             throw new BusinessException(ErrorCode.UNAUTHORIZED_REQUEST);
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = UtcDateTimes.now();
 
         Optional<PostView> optionalPostView =
                 postViewRepository.findByPostIdAndUserId(post.getId(), loginUserId);

@@ -16,6 +16,9 @@ RUN ./gradlew bootJar --no-daemon \
 
 FROM eclipse-temurin:21-jre-alpine AS runtime
 
+ENV TZ=UTC
+ENV JAVA_TOOL_OPTIONS="-Duser.timezone=UTC"
+
 WORKDIR /app
 
 RUN addgroup -S spring \

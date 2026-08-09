@@ -1,5 +1,6 @@
 package com.theo.community_api.post.domain;
 
+import com.theo.community_api.common.time.UtcDateTimes;
 import com.theo.community_api.user.domain.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -40,6 +41,6 @@ public class PostLike {
     public PostLike(Post post, User user) {
         this.post = post;
         this.user = user;
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = UtcDateTimes.now();
     }
 }

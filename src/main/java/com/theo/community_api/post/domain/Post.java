@@ -1,6 +1,7 @@
 package com.theo.community_api.post.domain;
 
 import com.theo.community_api.common.BaseTimeEntity;
+import com.theo.community_api.common.time.UtcDateTimes;
 import com.theo.community_api.user.domain.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -63,7 +64,7 @@ public class Post extends BaseTimeEntity {
     public void update(String title, String content) {
         this.title = title;
         this.content = content;
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = UtcDateTimes.now();
     }
 
     public void increaseViewCount() {
@@ -91,7 +92,7 @@ public class Post extends BaseTimeEntity {
     }
 
     public void delete(){
-        this.deletedAt = LocalDateTime.now(); // soft delete 방식 사용
+        this.deletedAt = UtcDateTimes.now(); // soft delete 방식 사용
     }
 
     public void blind(){
