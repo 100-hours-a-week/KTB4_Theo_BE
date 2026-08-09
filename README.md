@@ -46,9 +46,7 @@ Spring Boot와 MySQL을 기반으로 회원 인증, 게시글·댓글·답글, �
 
 ## 서비스 시연 영상
 
-<!-- 시연 영상을 업로드한 후 Google Drive 공유 주소를 추가해 주세요. -->
-
-- Google Drive: 
+- 유튜브 링크 : https://youtu.be/SQUS1Fl9Xo0?si=UHr2pPjk5c2O7mjH
 
 ## 폴더 구조
 
