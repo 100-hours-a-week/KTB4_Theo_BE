@@ -287,6 +287,7 @@ S3 업로드와 DB 트랜잭션은 하나의 ACID 트랜잭션으로 묶을 수 
 ### 모델링
 
 <!-- ERD 이미지를 docs/images/erd.png에 추가한 후 아래 주석을 해제해 주세요. -->
+<img width="641" height="707" alt="community_erd" src="https://github.com/user-attachments/assets/a9461457-0f81-43d8-b353-28aac23969b9" />
 
 <!-- <p align="center"><img src="docs/images/erd.png" width="900" alt="코드 한입 ERD" /></p> -->
 
