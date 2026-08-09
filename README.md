@@ -1,4 +1,6 @@
 # 코드 한입
+<img width="2696" height="766" alt="image" src="https://github.com/user-attachments/assets/daab0e16-69d6-41af-a58d-87744ec945e6" />
+
 
 ## Back-end 소개
 
