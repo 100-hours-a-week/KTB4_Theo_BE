@@ -1,11 +1,12 @@
 package com.theo.community_api.post.dto;
 
+import com.theo.community_api.common.time.UtcDateTimeConverter;
 import com.theo.community_api.reply.domain.Reply;
 import com.theo.community_api.user.domain.User;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Getter
 @AllArgsConstructor
@@ -17,7 +18,7 @@ public class PostReplyResponse {
     private boolean isAuthorDeleted;
     private boolean isReplyDeleted;
     private boolean isAuthor;
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     public static PostReplyResponse from(
             Reply reply,
@@ -49,7 +50,7 @@ public class PostReplyResponse {
                 isAuthorDeleted,
                 reply.isDeleted(),
                 isAuthor,
-                reply.getCreatedAt()
+                UtcDateTimeConverter.toInstant(reply.getCreatedAt())
         );
     }
 }

@@ -1,10 +1,11 @@
 package com.theo.community_api.draft.dto;
 
+import com.theo.community_api.common.time.UtcDateTimeConverter;
 import com.theo.community_api.draft.domain.Draft;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 @Getter
@@ -14,7 +15,7 @@ public class DraftResponse {
     private String title;
     private String content;
     private List<DraftImageResponse> images;
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     public static DraftResponse from(Draft draft, List<DraftImageResponse> images){
         return new DraftResponse(
@@ -22,7 +23,7 @@ public class DraftResponse {
                 draft.getTitle(),
                 draft.getContent(),
                 images,
-                draft.getUpdatedAt()
+                UtcDateTimeConverter.toInstant(draft.getUpdatedAt())
         );
     }
 }

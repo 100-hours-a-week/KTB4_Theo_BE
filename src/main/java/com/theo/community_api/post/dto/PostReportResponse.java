@@ -1,9 +1,10 @@
 package com.theo.community_api.post.dto;
 
+import com.theo.community_api.common.time.UtcDateTimeConverter;
 import com.theo.community_api.post.domain.PostReport;
 import lombok.Getter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Getter
 public class PostReportResponse {
@@ -13,8 +14,8 @@ public class PostReportResponse {
     private final Long userId;
     private final String reason;
     private final String status;
-    private final LocalDateTime reportedAt;
-    private final LocalDateTime processedAt;
+    private final Instant reportedAt;
+    private final Instant processedAt;
     private final String adminMemo;
 
     private PostReportResponse(
@@ -23,8 +24,8 @@ public class PostReportResponse {
             Long userId,
             String reason,
             String status,
-            LocalDateTime reportedAt,
-            LocalDateTime processedAt,
+            Instant reportedAt,
+            Instant processedAt,
             String adminMemo
     ) {
         this.reportId = reportId;
@@ -44,8 +45,8 @@ public class PostReportResponse {
                 postReport.getUser().getId(),
                 postReport.getReason(),
                 postReport.getStatus().name(),
-                postReport.getReportedAt(),
-                postReport.getProcessedAt(),
+                UtcDateTimeConverter.toInstant(postReport.getReportedAt()),
+                UtcDateTimeConverter.toInstant(postReport.getProcessedAt()),
                 postReport.getAdminMemo()
         );
     }

@@ -1,12 +1,13 @@
 package com.theo.community_api.notification.dto;
 
+import com.theo.community_api.common.time.UtcDateTimeConverter;
 import com.theo.community_api.notification.domain.Notification;
 import com.theo.community_api.notification.domain.NotificationType;
 import com.theo.community_api.user.domain.User;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Getter
 @AllArgsConstructor
@@ -19,7 +20,7 @@ public class NotificationResponse {
     private Long postId;
     private Long commentId;
     private boolean read;
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     public static NotificationResponse from(
             Notification notification,
@@ -46,7 +47,7 @@ public class NotificationResponse {
                 notification.getPost().getId(),
                 commentId,
                 notification.isRead(),
-                notification.getCreatedAt()
+                UtcDateTimeConverter.toInstant(notification.getCreatedAt())
         );
     }
 }

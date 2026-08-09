@@ -1,11 +1,12 @@
 package com.theo.community_api.post.dto;
 
+import com.theo.community_api.common.time.UtcDateTimeConverter;
 import com.theo.community_api.post.domain.Post;
 import com.theo.community_api.user.domain.User;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Getter
 @AllArgsConstructor
@@ -23,7 +24,7 @@ public class PostSummaryResponse { // 게시물 목록 조회에서 하나의 �
     private boolean isAuthorDeleted;
     private boolean isBlinded;
 
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     public static PostSummaryResponse from(
             Post post,
@@ -52,7 +53,7 @@ public class PostSummaryResponse { // 게시물 목록 조회에서 하나의 �
                 post.isEdited(),
                 isAuthorDeleted,
                 post.isBlinded(),
-                post.getCreatedAt()
+                UtcDateTimeConverter.toInstant(post.getCreatedAt())
         );
     }
 }
