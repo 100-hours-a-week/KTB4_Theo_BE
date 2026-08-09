@@ -178,6 +178,41 @@ flowchart LR
 - `lastNotificationId` 커서 기반 목록, 미읽 개수, 개별·전체 읽음 API 제공
 - 활성 연결, 연결·전송·heartbeat 성공·실패를 Actuator 커스텀 지표로 수집
 
+#### SSE 알림 처리 흐름
+```mermaid
+sequenceDiagram
+    autonumber
+
+    actor User as 이벤트 발생 사용자
+    participant API as Spring Boot API
+    participant DB as MySQL
+    participant Event as AFTER_COMMIT Listener
+    participant Executor as SSE Executor
+    participant Emitter as SseEmitter Repository
+    participant Client as 알림 수신 클라이언트
+
+    User->>API: 좋아요·댓글·답글 요청
+    API->>DB: 도메인 데이터와 알림 저장
+
+    alt 트랜잭션 커밋 성공
+        DB-->>API: Commit
+        API->>Event: NotificationCreatedEvent
+        Event->>Executor: 비동기 전송 위임
+        Executor->>Emitter: 수신자 연결 조회
+
+        alt 활성 SSE 연결 존재
+            Emitter-->>Executor: 사용자·탭별 Emitter
+            Executor-->>Client: notification 이벤트 전송
+        else 활성 연결 없음
+            Emitter-->>Executor: 빈 연결 목록
+            Note over DB,Client: 알림은 DB에 보존되어 목록 조회 가능
+        end
+    else 트랜잭션 롤백
+        DB-->>API: Rollback
+        Note over Event,Client: AFTER_COMMIT 이벤트가 실행되지 않음
+    end
+```
+
 ### Image
 
 - 이미지 확장자·MIME Type·파일 크기를 검증하고 카테고리별 S3 Key 생성
@@ -198,25 +233,37 @@ flowchart LR
 
 ## 주요 기술적 개선
 
-### 1. 반복 Polling에서 SSE 실시간 알림으로 전환
+### 1. Polling의 반복 조회 비용을 SSE 실시간 알림으로 개선
 
-5초 Polling은 새 알림이 없어도 모든 활성 사용자가 반복적으로 HTTP 요청과 DB 조회를 발생시켰습니다. 부하 테스트로 폴링 주기를 30초에서 5초로 줄이면 요청량이 6배 증가함을 확인했고, 이를 새 이벤트가 있을 때만 서버가 전송하는 SSE로 전환했습니다.
+5초 Polling은 새 알림이 없어도 모든 활성 사용자가 HTTP 요청과 DB 조회를 반복했습니다. 부하 테스트에서 폴링 주기를 30초에서 5초로 줄이자 요청량이 6배 증가하는 구조적 비용을 확인하고, 새 이벤트가 있을 때만 서버가 전송하는 SSE로 전환했습니다.
 
-### 2. 알림 영속성과 실시간 전송의 트랜잭션 분리
+롤백된 알림이 클라이언트에 먼저 전송되지 않도록 `@TransactionalEventListener(AFTER_COMMIT)`을 적용하고, 전용 Executor에서 SSE 전송을 비동기 실행해 핵심 트랜잭션과 네트워크 I/O를 분리했습니다. 사용자·탭별 UUID로 연결을 구분하고 재연결 시 기존 Emitter를 원자적으로 교체했으며, 종료·타임아웃·오류 콜백과 heartbeat로 연결 생명주기를 관리했습니다.
 
-알림 엔티티 저장과 SSE 전송을 동일 트랜잭션에서 바로 처리하면, 롤백된 알림이 클라이언트에 먼저 전송될 수 있고 네트워크 I/O가 핵심 트랜잭션을 지연시킬 수 있습니다. `@TransactionalEventListener(AFTER_COMMIT)`과 전용 Executor를 사용해 DB 커밋 완료 후에만 비동기 전송하도록 분리했습니다.
+연결 유지 부하 테스트에서 5,000개 연결을 안정적으로 유지했고, 10,000명 조건에서 embedded Tomcat의 기본 연결 상한과 일치하는 8,192개에 도달함을 확인했습니다.
 
-### 3. Refresh Token 원문 보관과 재사용 범위 축소
+### 2. 좋아요 동시 요청의 데이터 정합성 보장
 
-Refresh Token을 DB에 원문으로 보관하지 않고 SHA-256 해시로 저장했습니다. 재발급 시 기존 Token을 삭제하고 Access·Refresh Token을 모두 교체해 이미 사용된 Token의 재사용 범위를 줄였습니다. 로그아웃은 현재 기기 Token만, 회원 탈퇴는 전체 Token을 폐기하도록 범위를 구분했습니다.
+좋아요 이력과 게시글의 `likeCount`를 별도로 관리하면 동일 게시글에 요청이 동시에 들어올 때 카운터 갱신이 유실될 수 있습니다. 좋아요 토글 시 게시글을 `PESSIMISTIC_WRITE`로 잠금하고, 이력 변경과 카운터 갱신을 하나의 트랜잭션에서 처리했습니다.
 
-### 4. 파일 저장소와 도메인 로직 분리
+또한 `(postId, userId)` 조합에 DB 유니크 제약을 적용해 애플리케이션 검증을 통과한 경합 요청에서도 중복 좋아요 이력이 저장되지 않도록 이중으로 방어했습니다.
 
-업로드 로직이 AWS SDK에 직접 의존하지 않도록 `ImageStorage`로 추상화했습니다. DB에는 배포 환경의 URL이 아닌 저장소 Key를 보관하고, API 응답 시 `ImageUrlResolver`를 통해 CloudFront URL로 변환하도록 분리했습니다.
+### 3. 커서 기반 페이지네이션과 목록 조회 최적화
 
-### 5. 업로드되었지만 참조되지 않는 이미지 정리
+게시글과 알림 목록에 Offset 대신 마지막으로 조회한 ID를 사용하는 커서 기반 페이지네이션을 적용했습니다. 데이터가 추가되는 상황에서도 페이지 간 중복·누락 가능성을 줄이고, 뒷 페이지로 갈수록 앞선 행을 반복해 건너뛰는 Offset 비용을 피했습니다.
 
-S3 업로드와 DB 트랜잭션은 하나의 ACID 트랜잭션으로 묶을 수 없어 중간 실패 시 고아 파일이 남을 수 있습니다. S3 객체와 현재 DB가 참조하는 Key를 비교하고, 유예 기간이 지난 비참조 객체만 삭제 후보로 선정했습니다. dry-run을 기본으로 두어 운영 오삭제 위험을 줄였습니다.
+`size + 1`건을 조회해 `hasNext`를 판단하고, 목록에서 반복 참조하는 작성자는 `join fetch`로 함께 조회해 N+1 문제를 줄였습니다. 알림 테이블에는 `(receiver_id, id)`와 `(receiver_id, read_at)` 복합 인덱스를 적용하고, 전체 읽음은 개별 엔티티 조회 대신 하나의 Bulk UPDATE로 처리했습니다.
+
+### 4. S3와 DB 사이의 트랜잭션 정합성 보완
+
+S3 파일 작업과 DB 트랜잭션은 하나의 ACID 트랜잭션으로 묶을 수 없어, 업로드 후 DB 처리가 실패하거나 DB 롤백 전에 기존 이미지를 먼저 삭제하면 저장소와 DB 상태가 어긋날 수 있습니다. 신규 이미지는 DB 트랜잭션 롤백 시 삭제하고, 기존 이미지는 DB 커밋 완료 후 삭제하도록 `TransactionSynchronization` 기반 보상 처리를 구성했습니다.
+
+이미지 로직은 `ImageStorage`로 추상화해 AWS SDK와 도메인 로직을 분리했고, DB에는 배포 URL 대신 S3 Key를 보관했습니다. 보상 처리 이후에도 남을 수 있는 고아 파일은 S3 객체와 DB 참조 Key를 비교해 유예 기간이 지난 비참조 객체만 정리하고, dry-run을 기본값으로 두어 오삭제 위험을 줄였습니다.
+
+### 5. 사용자별 조회 이력으로 중복 조회수 증가 방지
+
+게시글 상세 화면을 새로고침할 때마다 조회수가 증가하면 실제 이용량과 다른 수치가 저장될 수 있습니다. 사용자와 게시글 조합별 조회 이력을 `post_view`에 저장하고, 마지막 조회 시점으로부터 24시간이 지난 경우에만 조회수를 다시 증가하도록 정책을 구현했습니다.
+
+`(post_id, user_id)` 조합에 DB 유니크 제약을 적용해 동일 사용자의 중복 조회 이력이 생성되지 않도록 데이터베이스 수준에서도 방어했습니다.
 
 ## 성능 테스트
 
@@ -254,9 +301,9 @@ S3 업로드와 DB 트랜잭션은 하나의 ACID 트랜잭션으로 묶을 수 
 | 5,000명 | 5,000 | 100% | 0 | 안정 유지 |
 | 10,000명 | 8,192 | 81.92% | 25,032회¹ | Tomcat 기본 연결 상한 도달 |
 
-¹ 고유 사용자 수가 아니라 실패 후 재시도를 포함한 연결 시도 횟수입니다.
+고유 사용자 수가 아니라 실패 후 재시도를 포함한 연결 시도 횟수입니다.
 
-5,000명 비교에서 Polling은 약 1,000 RPS, CPU 약 9.21%, Hikari active/pending 최대 10/188을 사용했습니다. SSE는 반복 요청 없이 CPU 약 0.08%, Hikari active/pending 1/0을 유지했지만 Heap은 약 682.4MiB로 Polling의 약 260.8MiB보다 높았습니다. 즉, CPU·DB·스레드 비용을 장기 연결·Emitter·Heap 비용으로 전환한 결과입니다.
+5,000명 비교에서 Polling은 약 1,000 RPS, CPU 약 9.21%, Hikari active/pending 최대 10/188을 사용했습니다. SSE는 반복 요청 없이 CPU 약 0.08%, Hikari active/pending 1/0을 유지했지만 Heap은 약 682.4MiB로 Polling의 약 260.8MiB보다 높았습니다. 즉, CPU·DB·스레드 비용을 Emitter 장기 연결 및 Heap 비용으로 전환한 결과입니다.
 
 상세 결과: [SSE 연결 부하 테스트 보고서](load-tests/reports/sse-connection-load-test.md)
 
